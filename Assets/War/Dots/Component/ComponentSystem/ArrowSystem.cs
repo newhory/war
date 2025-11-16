@@ -56,7 +56,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute(Entity entity, in Arrow arrow, in Team team, in LocalTransform localTransform, in AttackPower attackPower)
+            public void Execute(Entity entity, in Arrow arrow, in LocalTransform localTransform, in AttackPower attackPower)
             {
                 if (!CollisionEvents.TryGetFirstValue(entity, out Entity targetEntity, out NativeParallelMultiHashMapIterator<Entity> iterator))
                 {
@@ -96,7 +96,7 @@ namespace War.Dots.Component.ComponentSystem
 
             _arrowQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Arrow, Team, LocalTransform, AttackPower, PhysicsVelocity>()
+                    .WithAll<Arrow, LocalTransform, AttackPower, PhysicsVelocity>()
                     .WithAllRW<Forward>()
                     .WithNone<DestroyOn>()
                     .Build();

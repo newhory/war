@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 
 namespace War
@@ -35,9 +36,21 @@ namespace War
         public static int ArrowLayer { get; private set; }
 
 
-        public static int GetMyTeamLayer(TeamColor teamColor) => teamColor == TeamColor.Red ? RedTeamLayer : BlueTeamLayer;
-        public static int GetEnemyLayer(TeamColor teamColor) => teamColor == TeamColor.Red ? BlueTeamLayer : RedTeamLayer;
+        public static int GetMyTeamLayer(TeamColor teamColor) =>
+            teamColor switch
+            {
+                TeamColor.Red => RedTeamLayer,
+                TeamColor.Blue => BlueTeamLayer,
+                _ => throw new Exception($"Invalid team color: {teamColor}")
+            };
 
+        public static int GetEnemyLayer(TeamColor teamColor) =>
+            teamColor switch
+            {
+                TeamColor.Red => BlueTeamLayer,
+                TeamColor.Blue => RedTeamLayer,
+                _ => throw new Exception($"Invalid team color: {teamColor}")
+            };
 
         protected override void Init()
         {
