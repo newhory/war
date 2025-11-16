@@ -214,6 +214,8 @@ namespace War.Dots.Component.ComponentSystem
                     setMaxSpeedJobEcb.Playback(state.EntityManager);
                 }
 
+                formations.Dispose();
+                
                 _moveInFormationSoldierQuery.ResetFilter();
             }
 

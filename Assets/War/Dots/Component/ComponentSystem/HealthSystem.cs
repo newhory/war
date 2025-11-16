@@ -20,12 +20,10 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, in Health health)
             {
-                if (health.Value > 0)
+                if (health.Value <= 0)
                 {
-                    return;
+                    EntityCommandBuffer.AddComponent(entityIndex, entity, new DestroyOn { DestroyTime = CurrentTime + 2.0f });
                 }
-
-                EntityCommandBuffer.AddComponent(entityIndex, entity, new DestroyOn { DestroyTime = CurrentTime + 2.0f });
             }
         }
 
@@ -46,19 +44,16 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            double currentTime = SystemAPI.Time.ElapsedTime;
-
-            EntityCommandBuffer excludeSoldierEcb = new(Allocator.TempJob);
+            using EntityCommandBuffer excludeSoldierEcb = new(Allocator.TempJob);
             new CheckHealthJob
                 {
                     EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter(),
 
-                    CurrentTime = currentTime
+                    CurrentTime = SystemAPI.Time.ElapsedTime
                 }
                 .ScheduleParallel(_healthQuery, state.Dependency)
                 .Complete();
             excludeSoldierEcb.Playback(state.EntityManager);
-            excludeSoldierEcb.Dispose();
         }
     }
 }

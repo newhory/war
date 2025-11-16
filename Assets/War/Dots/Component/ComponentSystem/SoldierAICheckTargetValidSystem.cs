@@ -43,10 +43,10 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Soldier, Alive, AICheckTargetValid>()
                     .WithAllRW<TargetForAttack>()
                     .Build();
-            
+
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
@@ -55,12 +55,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             _damagedLookup.Update(ref state);
 
-            state.Dependency =
-                new CheckTargetValidJob
-                    {
-                        DamagedLookup = _damagedLookup
-                    }
-                    .ScheduleParallel(_checkTargetValidQuery, state.Dependency);
+            state.Dependency = new CheckTargetValidJob { DamagedLookup = _damagedLookup }.ScheduleParallel(_checkTargetValidQuery, state.Dependency);
         }
     }
 }

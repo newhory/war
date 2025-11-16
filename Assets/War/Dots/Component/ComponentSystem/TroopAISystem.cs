@@ -55,24 +55,6 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
-        [BurstCompile]
-        private partial struct UpdateSoldierAISearchTargetJob : IJobEntity
-        {
-            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
-
-            [ReadOnly] public ComponentLookup<TargetForAttack> TargetForAttackLookup;
-
-
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, in SoldierAttachedTroop soldierAttachedTroop)
-            {
-                if (TargetForAttackLookup.TryGetRefRO(soldierAttachedTroop.TroopEntity, out RefRO<TargetForAttack> refTargetForAttack) &&
-                    refTargetForAttack.ValueRO.Target != Entity.Null)
-                {
-                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, true);
-                }
-            }
-        }
-
 
         private EntityQuery _searchTargetQuery;
         private EntityQuery _checkTargetValidQuery;
@@ -98,13 +80,13 @@ namespace War.Dots.Component.ComponentSystem
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
-            
+
             _targetCandidateSoldierQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Troop, Alive, NavMeshAgentData, LocalTransform>()
-                    .Build(); 
+                    .Build();
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
@@ -135,28 +117,28 @@ namespace War.Dots.Component.ComponentSystem
             checkTargetValidEcb.Playback(state.EntityManager);
             checkTargetValidEcb.Dispose();
 
-            NativeArray<Entity> troopsHasTargetEntities = _checkTargetValidQuery.ToEntityArray(Allocator.TempJob);
-            NativeArray<TargetForAttack> troopsHasTarget = _checkTargetValidQuery.ToComponentDataArray<TargetForAttack>(Allocator.TempJob);
+            using NativeArray<Entity> troopsHasTargetEntities = _checkTargetValidQuery.ToEntityArray(Allocator.Temp);
+            using NativeArray<TargetForAttack> troopsHasTarget = _checkTargetValidQuery.ToComponentDataArray<TargetForAttack>(Allocator.Temp);
 
             for (int i = 0, count = troopsHasTargetEntities.Length; i < count; ++i)
             {
                 Troop targetTroop = state.EntityManager.GetSharedComponent<Troop>(troopsHasTarget[i].Target);
-                
+
                 _targetCandidateSoldierQuery.SetSharedComponentFilter(targetTroop);
-                
-                NativeArray<Entity> targetCandidateSoldierEntities = _targetCandidateSoldierQuery.ToEntityArray(Allocator.TempJob);
+
+                using NativeArray<Entity> targetCandidateSoldierEntities = _targetCandidateSoldierQuery.ToEntityArray(Allocator.Temp);
                 int targetCandidateSoldierCount = targetCandidateSoldierEntities.Length;
                 if (targetCandidateSoldierCount == 0)
                 {
                     continue;
                 }
-                
-                NativeArray<LocalTransform> targetCandidateSoldierPositions = _targetCandidateSoldierQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-                NativeBitArray alreadyTargeted = new(targetCandidateSoldierCount, Allocator.TempJob);
-                
+
+                using NativeArray<LocalTransform> targetCandidateSoldierPositions = _targetCandidateSoldierQuery.ToComponentDataArray<LocalTransform>(Allocator.Temp);
+                using NativeBitArray alreadyTargeted = new(targetCandidateSoldierCount, Allocator.Temp);
+
                 Troop troop = state.EntityManager.GetSharedComponent<Troop>(troopsHasTargetEntities[i]);
-                
-                using EntityCommandBuffer ecb = new(Allocator.TempJob);
+
+                using EntityCommandBuffer ecb = new(Allocator.Temp);
 
                 foreach (
                     (RefRW<TargetForAttack> refTargetForAttack, RefRO<LocalTransform> refSoldierPosition, Entity entity)
@@ -170,7 +152,7 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         continue;
                     }
-                    
+
                     bool isFindTarget = false;
                     int targetIndex = 0;
                     float minDistance = float.MaxValue;
@@ -210,13 +192,13 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         alreadyTargeted.Set(targetIndex, true);
                     }
-                    
+
                     refTargetForAttack.ValueRW.Target = targetCandidateSoldierEntities[targetIndex];
-                    
+
                     ecb.SetComponentEnabled<AISearchTarget>(entity, false);
                     ecb.SetComponentEnabled<AICheckTargetValid>(entity, true);
                 }
-                
+
                 ecb.Playback(state.EntityManager);
             }
         }

@@ -73,7 +73,7 @@ namespace War.Dots.Component.ComponentSystem
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
             _teamLookup = state.GetComponentLookup<Team>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
@@ -83,14 +83,18 @@ namespace War.Dots.Component.ComponentSystem
             _localTransformLookup.Update(ref state);
             _teamLookup.Update(ref state);
 
+            NativeArray<Entity> targetEntities = _targetQuery.ToEntityArray(Allocator.TempJob);
+
             state.Dependency =
                 new SearchTargetJob
                     {
-                        TargetEntities = _targetQuery.ToEntityArray(Allocator.TempJob).AsReadOnly(),
+                        TargetEntities = targetEntities.AsReadOnly(),
                         LocalTransformLookup = _localTransformLookup,
                         TeamLookup = _teamLookup,
                     }
                     .ScheduleParallel(_searchTargetQuery, state.Dependency);
+
+            targetEntities.Dispose(state.Dependency);
         }
     }
 }

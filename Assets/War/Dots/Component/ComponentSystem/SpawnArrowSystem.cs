@@ -4,7 +4,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
-using BoxCollider = Unity.Physics.BoxCollider;
 #if HYBRID_ARROW
 using System.Collections.Generic;
 using UnityEngine.Pool;
@@ -130,10 +129,10 @@ namespace War.Dots.Component.ComponentSystem
 
             ArrowSpawner arrowSpawner = SystemAPI.GetSingleton<ArrowSpawner>();
 
-            EntityCommandBuffer ecbJob = new(Allocator.TempJob);
+            EntityCommandBuffer ecb = new(Allocator.TempJob);
             new SpawnArrowJob
                 {
-                    EntityCommandBuffer = ecbJob.AsParallelWriter(),
+                    EntityCommandBuffer = ecb.AsParallelWriter(),
 
                     ProtoType = arrowSpawner.ArrowProtoType,
                     ArrowScale = arrowSpawner.ArrowScale,
@@ -141,8 +140,8 @@ namespace War.Dots.Component.ComponentSystem
                 }
                 .ScheduleParallel(_spawnArrowQuery, state.Dependency)
                 .Complete();
-            ecbJob.Playback(state.EntityManager);
-            ecbJob.Dispose();
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
 
             if (_justCreatedArrowQuery.CalculateEntityCount() == 0)
             {
@@ -175,7 +174,7 @@ namespace War.Dots.Component.ComponentSystem
 #if HYBRID_ARROW
             s_pooledGameObjectBuffer.Clear();
 
-            ecbJob = new EntityCommandBuffer(Allocator.Temp);
+            ecb = new EntityCommandBuffer(Allocator.Temp);
             foreach (
                 (RefRO<JustCreated> _, Entity entity)
                 in
@@ -190,18 +189,18 @@ namespace War.Dots.Component.ComponentSystem
 
                 s_pooledGameObjectBuffer.Add((entity, new PooledGameObject { PooledObject = pooled }));
 
-                ecbJob.AddComponent(entity, new UnityTransform { Transform = gameObject.transform });
+                ecb.AddComponent(entity, new UnityTransform { Transform = gameObject.transform });
             }
 
-            ecbJob.Playback(state.EntityManager);
-            ecbJob.Dispose();
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
 
             foreach (var (entity, pooledGameObject) in s_pooledGameObjectBuffer)
             {
                 state.EntityManager.AddComponentData(entity, pooledGameObject);
             }
 #endif
-            ecbJob = new EntityCommandBuffer(Allocator.Temp);
+            ecb = new EntityCommandBuffer(Allocator.Temp);
             foreach (
                 (RefRO<JustCreated> _, Entity entity)
                 in
@@ -209,11 +208,11 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Arrow>()
                     .WithEntityAccess())
             {
-                ecbJob.RemoveComponent<JustCreated>(entity);
+                ecb.RemoveComponent<JustCreated>(entity);
             }
 
-            ecbJob.Playback(state.EntityManager);
-            ecbJob.Dispose();
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
         }
     }
 }

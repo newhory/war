@@ -38,7 +38,7 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAllRW<Destination>()
                     .Build();
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
@@ -48,6 +48,7 @@ namespace War.Dots.Component.ComponentSystem
             state.EntityManager.GetAllUniqueSharedComponents(out NativeList<Formation> formations, Allocator.TempJob);
             if (formations.Length == 0)
             {
+                formations.Dispose();
                 return;
             }
 
@@ -58,7 +59,7 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     continue;
                 }
-                
+
                 _formationUnitQuery.SetSharedComponentFilter(formation);
 
                 int formationUnitEntityCount = _formationUnitQuery.CalculateEntityCount();
@@ -74,6 +75,8 @@ namespace War.Dots.Component.ComponentSystem
                     .ScheduleParallel(_formationUnitQuery, state.Dependency)
                     .Complete();
             }
+
+            formations.Dispose();
         }
     }
 }

@@ -279,9 +279,9 @@ namespace War.Dots.Component.ComponentSystem
 
             SoldierSpawner soldierSpawner = EntityManager.GetComponentData<SoldierSpawner>(s_spawnSoldierDataBufferEntity);
 
-            NativeList<SoldierForSpawn> spawnSoldierList = new(Allocator.TempJob);
-            NativeList<TroopForSpawn> spawnTroopList = new(Allocator.TempJob);
-            NativeHashSet<int> resetFormationIds = new(2, Allocator.TempJob);
+            using NativeList<SoldierForSpawn> spawnSoldierList = new(Allocator.TempJob);
+            using NativeList<TroopForSpawn> spawnTroopList = new(Allocator.TempJob);
+            using NativeHashSet<int> resetFormationIds = new(2, Allocator.TempJob);
 
             DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer = FormationUnitIndexingSystem.GetResetFormationUnitIndexBuffer(EntityManager);
 
@@ -331,38 +331,35 @@ namespace War.Dots.Component.ComponentSystem
                 }
             }
 
-            resetFormationIds.Dispose();
-
             spawnSoldierDataBuffer.Clear();
 
             bool isNewTroopSpawned = spawnTroopList.Length > 0;
             if (isNewTroopSpawned)
             {
                 using EntityCommandBuffer troopEcb = new(Allocator.TempJob);
-                SpawnTroopJob spawnTroopJob = new()
-                {
-                    TroopForSpawns = spawnTroopList.AsReadOnly(),
-                    EntityCommandBuffer = troopEcb.AsParallelWriter(),
-                };
-                spawnTroopJob.Schedule(spawnTroopList.Length, 64, Dependency).Complete();
-                spawnTroopList.Dispose();
+                new SpawnTroopJob
+                    {
+                        TroopForSpawns = spawnTroopList.AsReadOnly(),
+                        EntityCommandBuffer = troopEcb.AsParallelWriter(),
+                    }
+                    .Schedule(spawnTroopList.Length, 64, Dependency)
+                    .Complete();
                 troopEcb.Playback(EntityManager);
             }
 
             bool isNewSoldierSpawned = spawnSoldierList.Length > 0;
             if (isNewSoldierSpawned)
             {
-                EntityCommandBuffer ecbSpawnSoldier = new(Allocator.TempJob);
-                SpawnSoldierJob spawnSoldierJob = new()
-                {
-                    SoldierProtoType = soldierSpawner.SoldierProtoType,
-                    SoldierForSpawns = spawnSoldierList.AsReadOnly(),
-                    EntityCommandBuffer = ecbSpawnSoldier.AsParallelWriter(),
-                };
-                spawnSoldierJob.Schedule(spawnSoldierList.Length, 64, Dependency).Complete();
-                spawnSoldierList.Dispose();
+                using EntityCommandBuffer ecbSpawnSoldier = new(Allocator.TempJob);
+                new SpawnSoldierJob
+                    {
+                        SoldierProtoType = soldierSpawner.SoldierProtoType,
+                        SoldierForSpawns = spawnSoldierList.AsReadOnly(),
+                        EntityCommandBuffer = ecbSpawnSoldier.AsParallelWriter(),
+                    }
+                    .Schedule(spawnSoldierList.Length, 64, Dependency)
+                    .Complete();
                 ecbSpawnSoldier.Playback(EntityManager);
-                ecbSpawnSoldier.Dispose();
             }
 
             EntityManager.GetAllUniqueSharedComponents(out NativeList<Troop> troops, Allocator.Temp);
@@ -416,7 +413,7 @@ namespace War.Dots.Component.ComponentSystem
 #if UNITY_EDITOR
             if (isNewSoldierSpawned)
             {
-                EntityCommandBuffer ecbSetSoldierName = new(Allocator.TempJob);
+                using EntityCommandBuffer ecbSetSoldierName = new(Allocator.TempJob);
                 foreach (
                     (RefRO<Soldier> refSoldier, RefRO<Team> refTeam, Entity entity)
                     in
@@ -429,14 +426,12 @@ namespace War.Dots.Component.ComponentSystem
 
                     ecbSetSoldierName.SetName(entity, $"<[{refTeam.ValueRO.Color}]Troop {troop.Id}>{refSoldier.ValueRO.Type}_{refSoldier.ValueRO.Id}");
                 }
-
                 ecbSetSoldierName.Playback(EntityManager);
-                ecbSetSoldierName.Dispose();
             }
 
             if (isNewTroopSpawned)
             {
-                EntityCommandBuffer ecbSetTroopName = new(Allocator.TempJob);
+                using EntityCommandBuffer ecbSetTroopName = new(Allocator.TempJob);
                 foreach (
                     (RefRO<Team> refTeam, Entity entity)
                     in
@@ -448,9 +443,7 @@ namespace War.Dots.Component.ComponentSystem
 
                     ecbSetTroopName.SetName(entity, $"[{refTeam.ValueRO.Color}]{nameof(Troop)} {troop.Id}");
                 }
-
                 ecbSetTroopName.Playback(EntityManager);
-                ecbSetTroopName.Dispose();
             }
 #endif
         }

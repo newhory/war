@@ -43,7 +43,7 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            EntityCommandBuffer excludeSoldierEcb = new(Allocator.TempJob);
+            using EntityCommandBuffer excludeSoldierEcb = new(Allocator.TempJob);
             new CheckLifeJob
                 {
                     EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter(),
@@ -53,7 +53,6 @@ namespace War.Dots.Component.ComponentSystem
                 .ScheduleParallel(_destroyOnQuery, state.Dependency)
                 .Complete();
             excludeSoldierEcb.Playback(state.EntityManager);
-            excludeSoldierEcb.Dispose();
         }
     }
 }

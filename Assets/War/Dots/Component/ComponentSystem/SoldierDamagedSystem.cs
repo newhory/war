@@ -1,5 +1,8 @@
 ﻿using Unity.Burst;
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
+using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -36,23 +39,43 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct SoldierSetTargetJob : IJobEntity
         {
-            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref TargetForAttack targetForAttack)
+            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
+
+
+            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref TargetForAttack targetForAttack, in LocalTransform localTransform)
             {
+                float distanceToTarget = GetDistance(localTransform, targetForAttack.Target);
+                Entity target = targetForAttack.Target;
+
                 foreach (Damaged damaged in damagedBuffer)
                 {
-                    if (damaged.HitDamage > 0)
+                    if (damaged.HitDamage <= 0)
                     {
-                        targetForAttack.Target = damaged.Hitter;
+                        continue;
+                    }
 
-                        break;
+                    float distanceToHitter = GetDistance(localTransform, damaged.Hitter);
+                    if (distanceToHitter < distanceToTarget)
+                    {
+                        distanceToTarget = distanceToHitter;
+                        target = damaged.Hitter;
                     }
                 }
+
+                targetForAttack.Target = target;
             }
+
+            private float GetDistance(in LocalTransform localTransform, Entity target) =>
+                target != Entity.Null && LocalTransformLookup.TryGetRefRO(target, out RefRO<LocalTransform> targetTransform)
+                    ? math.distance(localTransform.Position, targetTransform.ValueRO.Position)
+                    : float.MaxValue;
         }
 
 
         private EntityQuery _soldierHitDamageQuery;
         private EntityQuery _soldierHitDamageNotAttackingQuery;
+
+        private ComponentLookup<LocalTransform> _localTransformLookup;
 
 
         public void OnCreate(ref SystemState state)
@@ -65,20 +88,24 @@ namespace War.Dots.Component.ComponentSystem
 
             _soldierHitDamageNotAttackingQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Alive, Soldier, Damaged>()
+                    .WithAll<Alive, Soldier, Damaged, LocalTransform>()
                     .WithAllRW<TargetForAttack>()
                     .WithDisabled<StateAttackTarget>()
                     .Build();
+
+            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
 
         public void OnUpdate(ref SystemState state)
         {
+            _localTransformLookup.Update(ref state);
+
             state.Dependency = new SoldierHitDamageJob().ScheduleParallel(_soldierHitDamageQuery, state.Dependency);
-            state.Dependency = new SoldierSetTargetJob().ScheduleParallel(_soldierHitDamageNotAttackingQuery, state.Dependency);
+            state.Dependency = new SoldierSetTargetJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_soldierHitDamageNotAttackingQuery, state.Dependency);
         }
     }
 }

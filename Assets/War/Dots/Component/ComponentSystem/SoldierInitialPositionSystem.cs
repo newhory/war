@@ -16,10 +16,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public LocalTransform FormationLocalTransform;
 
 
-            public void Execute(ref LocalTransform localTransform, in FormationUnit formationUnit)
-            {
-                localTransform.Position = FormationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
-            }
+            public void Execute(ref LocalTransform localTransform, in FormationUnit formationUnit) => localTransform.Position = FormationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
         }
 
 
@@ -77,6 +74,8 @@ namespace War.Dots.Component.ComponentSystem
                         .Complete();
                 }
             }
+            
+            formations.Dispose();
         }
     }
 }

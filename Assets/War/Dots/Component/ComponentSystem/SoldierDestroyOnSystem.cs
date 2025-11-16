@@ -20,12 +20,10 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute(in DestroyOn destroyOn, in Formation formation)
             {
-                if (CurrentTime < destroyOn.DestroyTime)
+                if (CurrentTime >= destroyOn.DestroyTime)
                 {
-                    return;
+                    NeedToUpdateFormationIds.Add(formation.Id);
                 }
-
-                NeedToUpdateFormationIds.Add(formation.Id);
             }
         }
 
@@ -33,14 +31,12 @@ namespace War.Dots.Component.ComponentSystem
         private EntityQuery _destroyOnSoldierQuery;
 
 
-        public void OnCreate(ref SystemState state)
-        {
+        public void OnCreate(ref SystemState state) =>
             _destroyOnSoldierQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, DestroyOn, Formation>()
                     .Build();
-        }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
