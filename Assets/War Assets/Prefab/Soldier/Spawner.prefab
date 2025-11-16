@@ -1,0 +1,137 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &7403940785006871268
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 615512253133632608}
+  - component: {fileID: 8389948354541183576}
+  - component: {fileID: 4715901435493768740}
+  - component: {fileID: 3320002237265509833}
+  m_Layer: 0
+  m_Name: Spawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &615512253133632608
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7403940785006871268}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8389948354541183576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7403940785006871268}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e2015b7631a34b18a797c29038ae734e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Runtime.Soldier.SoldierSpawner
+  soldierPrefab: {fileID: 8086886084479295801, guid: 2b9f04ffbe640594681e213e6208ea46,
+    type: 3}
+  spear:
+    health: 12
+    moveSpeed: 1
+    moveAcceleration: 2
+    searchTargetRange: 10
+    attackPower: 1
+    attackDuration: 0.32
+    attackHitTime: 0.22
+    attackDelay: 1.37
+    attackRange: 1.2
+    maxAttackRange: 0
+    weapon: 0
+    radius: 0.5
+    radiusInFormation: 0.75
+  archer:
+    health: 8
+    moveSpeed: 0.8
+    moveAcceleration: 1.6
+    searchTargetRange: 10
+    attackPower: 1.5
+    attackDuration: 0.35
+    attackHitTime: 0.18
+    attackDelay: 2.13
+    attackRange: 15
+    maxAttackRange: 0
+    weapon: 1
+    radius: 0.5
+    radiusInFormation: 0.75
+  shield:
+    health: 20
+    moveSpeed: 0.5
+    moveAcceleration: 1
+    searchTargetRange: 10
+    attackPower: 0.5
+    attackDuration: 0.35
+    attackHitTime: 0.2
+    attackDelay: 1.87
+    attackRange: 1
+    maxAttackRange: 0
+    weapon: 0
+    radius: 0.5
+    radiusInFormation: 0.75
+  cavalry:
+    health: 15
+    moveSpeed: 2
+    moveAcceleration: 4
+    searchTargetRange: 10
+    attackPower: 2
+    attackDuration: 0.35
+    attackHitTime: 0.2
+    attackDelay: 0.57
+    attackRange: 2
+    maxAttackRange: 0
+    weapon: 0
+    radius: 0.75
+    radiusInFormation: 1
+--- !u!114 &4715901435493768740
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7403940785006871268}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d43849926ac4500a89e16935988d829, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Runtime.Soldier.ArrowSpawner
+  arrowPrefab: {fileID: 1684730770711500, guid: 88ba5e5d8a7f0554aae9932d366f5d07,
+    type: 3}
+  arrowPrefabForHybrid: {fileID: 1684730770711500, guid: a0933a18059db26488ff1a8e8b2a9fa0,
+    type: 3}
+  arrowScale: 0.5
+--- !u!114 &3320002237265509833
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7403940785006871268}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a3091d3324794420a05ae7675dabb071, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Game.Runtime.EffectSpawner
+  hitEffectPrefab: {fileID: 100002, guid: 7799eafc87d1f6a47adfdfcfcb8eabd6, type: 3}
+  hitEffectDuration: 0.5

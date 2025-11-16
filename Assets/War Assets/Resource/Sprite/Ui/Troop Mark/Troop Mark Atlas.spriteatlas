@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!687078895 &4343727234628468602
+SpriteAtlas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: Troop Mark Atlas
+  m_EditorData:
+    serializedVersion: 2
+    textureSettings:
+      serializedVersion: 2
+      anisoLevel: 1
+      compressionQuality: 50
+      maxTextureSize: 2048
+      textureCompression: 0
+      filterMode: 1
+      generateMipMaps: 0
+      readable: 0
+      crunchedCompression: 0
+      sRGB: 1
+    platformSettings: []
+    packingSettings:
+      serializedVersion: 2
+      padding: 4
+      blockOffset: 1
+      allowAlphaSplitting: 0
+      enableRotation: 1
+      enableTightPacking: 1
+      enableAlphaDilation: 0
+    secondaryTextureSettings: {}
+    variantMultiplier: 1
+    packables:
+    - {fileID: 2800000, guid: 475b3004ecebaff4a85435a8f6874851, type: 3}
+    - {fileID: 2800000, guid: 3f9139371df7d384f8189a5703972674, type: 3}
+    - {fileID: 2800000, guid: a688ab2afbbbe7847acb0c2183fcbb13, type: 3}
+    - {fileID: 2800000, guid: a93891b3054a80f48bcdaab47fd861f6, type: 3}
+    bindAsDefault: 1
+    isAtlasV2: 0
+    cachedData: {fileID: 0}
+    packedSpriteRenderDataKeys:
+    - a93891b3054a80f48bcdaab47fd861f6: 21300000
+    - 475b3004ecebaff4a85435a8f6874851: 21300000
+    - 3f9139371df7d384f8189a5703972674: 21300000
+    - a688ab2afbbbe7847acb0c2183fcbb13: 21300000
+  m_MasterAtlas: {fileID: 0}
+  m_PackedSprites:
+  - {fileID: 21300000, guid: a93891b3054a80f48bcdaab47fd861f6, type: 3}
+  - {fileID: 21300000, guid: 475b3004ecebaff4a85435a8f6874851, type: 3}
+  - {fileID: 21300000, guid: 3f9139371df7d384f8189a5703972674, type: 3}
+  - {fileID: 21300000, guid: a688ab2afbbbe7847acb0c2183fcbb13, type: 3}
+  m_PackedSpriteNamesToIndex:
+  - "icon_\uD65C"
+  - "icon_\uB9D0"
+  - "icon_\uBC29\uD328"
+  - "icon_\uCC3D"
+  m_RenderDataMap: {}
+  m_Tag: Troop Mark Atlas
+  m_IsVariant: 0
