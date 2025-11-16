@@ -7,7 +7,6 @@ namespace War.Dots.Component.Authoring
     public class AttackRangeAuthoring : MonoBehaviour
     {
         [SerializeField] private float value;
-        [SerializeField] private float max;
 
 
         private class Baker : Baker<AttackRangeAuthoring>
@@ -16,7 +15,7 @@ namespace War.Dots.Component.Authoring
             {
                 Entity entity = GetEntity(TransformUsageFlags.Dynamic);
 
-                AddComponent(entity, new AttackRange { Value = authoring.value, Max = authoring.max});
+                AddComponent(entity, new AttackRange { Value = authoring.value });
             }
         }
     }

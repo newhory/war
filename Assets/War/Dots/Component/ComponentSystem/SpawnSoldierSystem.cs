@@ -66,6 +66,22 @@ namespace War.Dots.Component.ComponentSystem
 
             #endregion
 
+            #region AI
+
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new AI { CheckTargetInterval = soldierData.checkTargetInterval, LastCheckTargetTime = -1f });
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new AISearchTarget());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new AICheckTargetValid());
+
+            #endregion
+
+            #region state
+
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveInFormation());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveToTarget());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateAttackTarget());
+
+            #endregion
+
             #region formation
 
                 EntityCommandBuffer.AddSharedComponent(index, soldierEntity, new Formation { Id = soldierForSpawn.TroopId });
@@ -92,7 +108,7 @@ namespace War.Dots.Component.ComponentSystem
 
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Attack());
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new AttackPower { Value = soldierData.attackPower });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new AttackRange { Value = soldierData.attackRange, Max = soldierData.maxAttackRange });
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new AttackRange { Value = soldierData.attackRange });
                 EntityCommandBuffer.AddComponent(
                     index,
                     soldierEntity,
@@ -120,14 +136,6 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Alive());
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Movable());
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Rotatable());
-
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new AISearchTarget());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new AICheckTargetValid());
-
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveInFormation());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveToTarget());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateAttackTarget());
-
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new UseDefaultMaxSpeed());
 
             #endregion
@@ -426,6 +434,7 @@ namespace War.Dots.Component.ComponentSystem
 
                     ecbSetSoldierName.SetName(entity, $"<[{refTeam.ValueRO.Color}]Troop {troop.Id}>{refSoldier.ValueRO.Type}_{refSoldier.ValueRO.Id}");
                 }
+
                 ecbSetSoldierName.Playback(EntityManager);
             }
 
@@ -443,6 +452,7 @@ namespace War.Dots.Component.ComponentSystem
 
                     ecbSetTroopName.SetName(entity, $"[{refTeam.ValueRO.Color}]{nameof(Troop)} {troop.Id}");
                 }
+
                 ecbSetTroopName.Playback(EntityManager);
             }
 #endif

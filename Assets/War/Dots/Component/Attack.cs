@@ -25,7 +25,6 @@ namespace War.Dots.Component
     public struct AttackRange : IComponentData
     {
         public float Value;
-        public float Max;
     }
 
     public struct AttackData : IComponentData

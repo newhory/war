@@ -17,6 +17,7 @@ namespace War.Dots.Component
         
         [Header("State")]
         public float searchTargetRange;
+        public float checkTargetInterval;
         
         [Header("Attack")]
         public float attackPower;
@@ -24,7 +25,6 @@ namespace War.Dots.Component
         public float attackHitTime;
         public float attackDelay;
         [Tooltip("유효 사거리. 피해를 입힐 수 있는 최대 거리")] public float attackRange;
-        [Tooltip("최대 사거리. 원거리 무기가 도달할 수 있는 최대 거리")] public float maxAttackRange;
         public SoldierWeaponType weapon;
 
         [Header("NavMeshAgent")]

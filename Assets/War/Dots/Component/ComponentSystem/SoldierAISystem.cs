@@ -16,11 +16,15 @@ namespace War.Dots.Component.ComponentSystem
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
+            [ReadOnly] public double CurrentTime;
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, in TargetForAttack targetForAttack)
+
+            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref AI ai, in TargetForAttack targetForAttack)
             {
                 if (targetForAttack.Target != Entity.Null)
                 {
+                    ai.LastCheckTargetTime = CurrentTime;
+
                     EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, true);
                 }
@@ -33,9 +37,10 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
             [ReadOnly] public ComponentLookup<LocalTransform> SoldierPositionLookup;
+            [ReadOnly] public double CurrentTime;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref Destination moveToDestination, in AICheckTargetValid checkTargetValid, in LocalTransform localTransform, in TargetForAttack targetForAttack, in AttackRange attackRange)
+            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref Destination moveToDestination, in AI ai, in AICheckTargetValid checkTargetValid, in LocalTransform localTransform, in TargetForAttack targetForAttack, in AttackRange attackRange)
             {
                 if (targetForAttack.Target != Entity.Null)
                 {
@@ -46,7 +51,7 @@ namespace War.Dots.Component.ComponentSystem
                     if (dist <= attackRange.Value)
                     {
                         moveToDestination.Position = localTransform.Position;
-                        
+
                         EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, false);
                         EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entityIndex, entity, true);
 
@@ -54,10 +59,19 @@ namespace War.Dots.Component.ComponentSystem
                     }
                     else
                     {
-                        moveToDestination.Position = otherPos;
-                        
-                        EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, true);
-                        EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entityIndex, entity, false);
+                        if (ai.LastCheckTargetTime > 0 &&
+                            CurrentTime > ai.LastCheckTargetTime + ai.CheckTargetInterval)
+                        {
+                            EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, false);
+                        }
+                        else
+                        {
+                            moveToDestination.Position = otherPos;
+
+                            EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entityIndex, entity, false);
+                        }
 
                         EntityCommandBuffer.SetComponentEnabled<Movable>(entityIndex, entity, true);
                         EntityCommandBuffer.SetComponentEnabled<Rotatable>(entityIndex, entity, true);
@@ -116,7 +130,7 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _moveInFormationSoldierQuery;
         private EntityQuery _notMoveInFormationSoldierQuery;
-        
+
         private ComponentLookup<LocalTransform> _soldierPositionLookup;
 
 
@@ -125,6 +139,7 @@ namespace War.Dots.Component.ComponentSystem
             _searchTargetQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, AISearchTarget, TargetForAttack>()
+                    .WithAllRW<AI>()
                     .WithDisabled<AICheckTargetValid>()
                     .Build();
 
@@ -132,7 +147,7 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, AICheckTargetValid, NavMeshAgentData, TargetForAttack, AttackRange, LocalTransform>()
                     .WithDisabled<AISearchTarget, StateAttackTarget>()
-                    .WithAllRW<Destination>()
+                    .WithAllRW<AI, Destination>()
                     .Build();
 
             _moveInFormationSoldierQuery =
@@ -150,7 +165,7 @@ namespace War.Dots.Component.ComponentSystem
 
             _soldierPositionLookup = state.GetComponentLookup<LocalTransform>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
@@ -160,7 +175,9 @@ namespace War.Dots.Component.ComponentSystem
             using EntityCommandBuffer searchTargetEcb = new(Allocator.TempJob);
             new SearchTargetJob
                 {
-                    EntityCommandBuffer = searchTargetEcb.AsParallelWriter()
+                    EntityCommandBuffer = searchTargetEcb.AsParallelWriter(),
+
+                    CurrentTime = SystemAPI.Time.ElapsedTime,
                 }
                 .ScheduleParallel(_searchTargetQuery, state.Dependency)
                 .Complete();
@@ -173,7 +190,8 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     EntityCommandBuffer = checkTargetValidEcb.AsParallelWriter(),
 
-                    SoldierPositionLookup = _soldierPositionLookup
+                    SoldierPositionLookup = _soldierPositionLookup,
+                    CurrentTime = SystemAPI.Time.ElapsedTime,
                 }
                 .ScheduleParallel(_checkTargetValidQuery, state.Dependency)
                 .Complete();
@@ -215,7 +233,7 @@ namespace War.Dots.Component.ComponentSystem
                 }
 
                 formations.Dispose();
-                
+
                 _moveInFormationSoldierQuery.ResetFilter();
             }
 

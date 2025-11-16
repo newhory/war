@@ -53,12 +53,12 @@ MonoBehaviour:
     moveSpeed: 1
     moveAcceleration: 2
     searchTargetRange: 10
+    checkTargetInterval: 0.5
     attackPower: 1
     attackDuration: 0.32
     attackHitTime: 0.22
     attackDelay: 1.37
     attackRange: 1.2
-    maxAttackRange: 0
     weapon: 0
     radius: 0.5
     radiusInFormation: 0.75
@@ -67,12 +67,12 @@ MonoBehaviour:
     moveSpeed: 0.8
     moveAcceleration: 1.6
     searchTargetRange: 10
+    checkTargetInterval: 0.5
     attackPower: 1.5
     attackDuration: 0.35
     attackHitTime: 0.18
     attackDelay: 2.13
     attackRange: 15
-    maxAttackRange: 0
     weapon: 1
     radius: 0.5
     radiusInFormation: 0.75
@@ -81,12 +81,12 @@ MonoBehaviour:
     moveSpeed: 0.5
     moveAcceleration: 1
     searchTargetRange: 10
+    checkTargetInterval: 0.5
     attackPower: 0.5
     attackDuration: 0.35
     attackHitTime: 0.2
     attackDelay: 1.87
     attackRange: 1
-    maxAttackRange: 0
     weapon: 0
     radius: 0.5
     radiusInFormation: 0.75
@@ -95,12 +95,12 @@ MonoBehaviour:
     moveSpeed: 2
     moveAcceleration: 4
     searchTargetRange: 10
+    checkTargetInterval: 0.5
     attackPower: 2
     attackDuration: 0.35
     attackHitTime: 0.2
     attackDelay: 0.57
     attackRange: 2
-    maxAttackRange: 0
     weapon: 0
     radius: 0.75
     radiusInFormation: 1

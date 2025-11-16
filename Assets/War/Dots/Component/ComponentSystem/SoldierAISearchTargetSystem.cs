@@ -35,7 +35,7 @@ namespace War.Dots.Component.ComponentSystem
                 int3 baseCell = SoldierSpatialHashMapBuildSystem.CellFromPos(pos);
 
                 float minDistance = float.MaxValue;
-                Entity target = Entity.Null;
+                Entity target = targetForAttack.Target;
 
                 for (int dx = -cellCount; dx <= cellCount; dx++)
                 {
@@ -92,7 +92,7 @@ namespace War.Dots.Component.ComponentSystem
             _teamLookup = state.GetComponentLookup<Team>(true);
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
