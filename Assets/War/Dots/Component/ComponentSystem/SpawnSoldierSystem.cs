@@ -407,8 +407,8 @@ namespace War.Dots.Component.ComponentSystem
                                     geometry,
                                     new CollisionFilter
                                     {
-                                        BelongsTo = (uint)(1 << Setting.GetMyTeamLayer(team.ValueRO.Color)),
-                                        CollidesWith = (uint)(1 << Setting.ArrowLayer),
+                                        BelongsTo = 1u << Setting.GetMyTeamLayer(team.ValueRO.Color),
+                                        CollidesWith = 1u << Setting.ArrowLayer,
                                     });
 
                             physicsCollider.ValueRW.Value = newCapsule;

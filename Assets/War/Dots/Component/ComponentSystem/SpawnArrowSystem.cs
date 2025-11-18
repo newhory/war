@@ -158,7 +158,7 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     CollisionFilter collisionFilter = physicsCollider.ValueRO.ColliderPtr->GetCollisionFilter();
 
-                    collisionFilter.CollidesWith = (uint)(1 << Setting.GetEnemyLayer(team.ValueRO.Color) | 1 << Setting.WorldLayer);
+                    collisionFilter.CollidesWith = 1u << Setting.GetEnemyLayer(team.ValueRO.Color) | 1u << Setting.WorldLayer;
 
                     switch (physicsCollider.ValueRO.Value.Value.Type)
                     {
