@@ -1,5 +1,5 @@
-﻿using Unity.Entities;
-using Unity.Mathematics;
+﻿using System;
+using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,6 +23,8 @@ namespace War
         [SerializeField] private GameObject blueTeamButtonRoot;
         [SerializeField] private GameObject redTeamButtonRoot;
 
+        [SerializeField] private TMPro.TextMeshProUGUI soldierCountText;
+
     #endregion
 
 
@@ -30,6 +32,11 @@ namespace War
         {
             startBattleButton.gameObject.SetActive(true);
             resetButton.gameObject.SetActive(false);
+        }
+
+        private void Update()
+        {
+            soldierCountText.text = PlayerInputSystem.SoldierCount.ToString();
         }
 
         public void RespawnBlueSpear()
@@ -148,8 +155,8 @@ namespace War
         {
             PlayerInputSystem.StartBattle();
 
-            blueTeamButtonRoot.SetActive(false);
-            redTeamButtonRoot.SetActive(false);
+            //blueTeamButtonRoot.SetActive(false);
+            //redTeamButtonRoot.SetActive(false);
 
             startBattleButton.gameObject.SetActive(false);
             resetButton.gameObject.SetActive(true);
@@ -159,16 +166,13 @@ namespace War
         {
             PlayerInputSystem.ResetBattle();
 
-            blueTeamButtonRoot.SetActive(true);
-            redTeamButtonRoot.SetActive(true);
+            //blueTeamButtonRoot.SetActive(true);
+            //redTeamButtonRoot.SetActive(true);
 
             startBattleButton.gameObject.SetActive(true);
             resetButton.gameObject.SetActive(false);
         }
 
-        private static void SpawnSoldier(SpawnSoldierData spawn)
-        {
-            SpawnSoldierSystem.SpawnSoldier(World.DefaultGameObjectInjectionWorld.EntityManager, spawn);
-        }
+        private static void SpawnSoldier(SpawnSoldierData spawn) => SpawnSoldierSystem.SpawnSoldier(World.DefaultGameObjectInjectionWorld.EntityManager, spawn);
     }
 }
