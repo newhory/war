@@ -11,19 +11,6 @@ namespace War.Dots.Component.ComponentSystem
     [UpdateInGroup(typeof(Group.FirstUpdateGroup), OrderLast = true)]
     public partial class PlayerInputSystem : SystemBase
     {
-        [BurstCompile]
-        private partial struct DestroyEntityJob : IJobEntity
-        {
-            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
-
-
-            public void Execute([EntityIndexInQuery] int index, Entity entity)
-            {
-                EntityCommandBuffer.DestroyEntity(index, entity);
-            }
-        }
-
-
         private static bool s_isStartBattle;
         private static bool s_isResetBattle;
 
@@ -52,7 +39,6 @@ namespace War.Dots.Component.ComponentSystem
         public static void OnPressCanceled(EntityManager entityManager, float2 point, Ray ray)
         {
             entityManager.SetComponentEnabled<OnPressStart>(s_pointInput, false);
-            entityManager.SetComponentEnabled<DragStartPosition>(s_pointInput, false);
             entityManager.SetComponentEnabled<OnPressEnd>(s_pointInput, true);
 
             entityManager.SetComponentData(s_pointInput, new OnDragEnd { Point = point, Ray = ray });
@@ -63,6 +49,11 @@ namespace War.Dots.Component.ComponentSystem
         private EntityQuery _troopGroup;
         private EntityQuery _soldierGroup;
         private EntityQuery _pooledGameObjectQuery;
+
+        private Entity _currentSelectedEntity;
+        private TeamColor _currentSelectedTeamColor;
+
+        private Entity _currentTargetCandidateEntity;
 
 
         protected override void OnCreate()
@@ -159,8 +150,15 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
                 {
+                    if (_currentTargetCandidateEntity != Entity.Null)
+                    {
+                        EntityManager.SetComponentEnabled<TroopSelected>(_currentTargetCandidateEntity, false);
+
+                        _currentTargetCandidateEntity = Entity.Null;
+                    }
+
                     OnDragging onDragging = EntityManager.GetComponentData<OnDragging>(s_pointInput);
-                    
+
                     dragStartPosition = EntityManager.GetComponentData<DragStartPosition>(s_pointInput).Position;
 
                     raycastInput.Start = onDragging.Ray.Origin;
@@ -168,8 +166,17 @@ namespace War.Dots.Component.ComponentSystem
 
                     if (Cast(raycastInput, out RaycastHit onDraggingRaycastHit))
                     {
-                        // todo : select target candidate troop
+                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(onDraggingRaycastHit.Position);
+
+                        if (currentPickedTroop != Entity.Null && teamColor != _currentSelectedTeamColor)
+                        {
+                            EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
+
+                            _currentTargetCandidateEntity = currentPickedTroop;
+                        }
+#if UNITY_EDITOR
                         UnityEngine.Debug.DrawLine(dragStartPosition, onDraggingRaycastHit.Position, UnityEngine.Color.red);
+#endif
                     }
                 }
                 else
@@ -189,8 +196,18 @@ namespace War.Dots.Component.ComponentSystem
                             EntityManager.SetComponentEnabled<DragStartPosition>(s_pointInput, true);
                             EntityManager.SetComponentData(s_pointInput, new DragStartPosition { Position = dragStartPosition });
 
-                            // todo : select troop
+                            (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(dragStartPosition);
+
+                            if (currentPickedTroop != Entity.Null)
+                            {
+                                EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
+
+                                _currentSelectedEntity = currentPickedTroop;
+                                _currentSelectedTeamColor = teamColor;
+                            }
+#if UNITY_EDITOR
                             UnityEngine.Debug.DrawLine(dragStartPosition, dragStartPosition + math.up() * 2.5f, UnityEngine.Color.azure, 5f);
+#endif
                         }
                     }
                 }
@@ -198,6 +215,13 @@ namespace War.Dots.Component.ComponentSystem
 
             if (EntityManager.IsComponentEnabled<OnPressEnd>(s_pointInput))
             {
+                if (_currentTargetCandidateEntity != Entity.Null)
+                {
+                    EntityManager.SetComponentEnabled<TroopSelected>(_currentTargetCandidateEntity, false);
+
+                    _currentTargetCandidateEntity = Entity.Null;
+                }
+
                 EntityManager.SetComponentEnabled<OnPressEnd>(s_pointInput, false);
 
                 OnDragEnd onDragEnd = EntityManager.GetComponentData<OnDragEnd>(s_pointInput);
@@ -207,9 +231,68 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (Cast(raycastInput, out RaycastHit onDragEndRaycastHit))
                 {
-                    // todo : select target or troop
+                    (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(onDragEndRaycastHit.Position);
+
+                    if (_currentSelectedEntity != currentPickedTroop)
+                    {
+                        if (_currentSelectedEntity == Entity.Null) // currentPickedTroop is not Null
+                        {
+                            EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
+
+                            _currentSelectedEntity = currentPickedTroop;
+                            _currentSelectedTeamColor = teamColor;
+                        }
+                        else
+                        {
+                            if (currentPickedTroop == Entity.Null) // _currentSelectedEntity is not Null
+                            {
+                                if (EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
+                                {
+                                    EntityManager.SetComponentData(_currentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
+
+                                    EntityManager.SetComponentEnabled<AICheckTargetValid>(_currentSelectedEntity, false);
+                                    EntityManager.SetComponentEnabled<AISearchTarget>(_currentSelectedEntity, false);
+                                    EntityManager.SetComponentEnabled<StateMoveInFormation>(_currentSelectedEntity, true);
+                                }
+
+                                EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
+
+                                _currentSelectedEntity = Entity.Null;
+                                _currentSelectedTeamColor = TeamColor.None;
+                            }
+                            else // currentPickedTroop and _currentSelectedEntity are not Null
+                            {
+                                if (_currentSelectedTeamColor == teamColor)
+                                {
+                                    EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
+
+                                    _currentSelectedEntity = currentPickedTroop;
+                                    _currentSelectedTeamColor = teamColor;
+                                }
+                                else
+                                {
+                                    if (EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
+                                    {
+                                        EntityManager.SetComponentData(_currentSelectedEntity, new TargetForAttack { Target = currentPickedTroop });
+
+                                        EntityManager.SetComponentEnabled<AICheckTargetValid>(_currentSelectedEntity, true);
+                                        EntityManager.SetComponentEnabled<AISearchTarget>(_currentSelectedEntity, false);
+                                    }
+
+                                    EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
+
+                                    _currentSelectedEntity = Entity.Null;
+                                    _currentSelectedTeamColor = TeamColor.None;
+                                }
+                            }
+                        }
+                    }
+#if UNITY_EDITOR
                     UnityEngine.Debug.DrawLine(onDragEndRaycastHit.Position, onDragEndRaycastHit.Position + math.up() * 2.5f, UnityEngine.Color.blue, 5f);
+#endif
                 }
+
+                EntityManager.SetComponentEnabled<DragStartPosition>(s_pointInput, false);
             }
         }
 
@@ -221,6 +304,70 @@ namespace War.Dots.Component.ComponentSystem
             CollisionWorld collisionWorld = physicsWorldSingleton.PhysicsWorld.CollisionWorld;
 
             return collisionWorld.CastRay(raycastInput, out raycastHit);
+        }
+
+        private (Entity, TeamColor) GetPickedTroop(float3 worldPosition)
+        {
+            Entity newSelectedEntity = Entity.Null;
+            TeamColor teamColor = TeamColor.None;
+
+            float minDistance = float.MaxValue;
+
+            foreach (
+                (RefRO<TroopAABB> troopAABB, RefRO<TroopEntity> troopEntity, RefRO<Team> team, DynamicBuffer<TroopHullPoint> troopHullPoints)
+                in
+                SystemAPI.Query<RefRO<TroopAABB>, RefRO<TroopEntity>, RefRO<Team>, DynamicBuffer<TroopHullPoint>>()
+                    .WithAll<Troop>()
+                    .WithDisabled<TroopSelected>())
+            {
+                // check AABB
+                if (worldPosition.x < troopAABB.ValueRO.Min.x || worldPosition.x > troopAABB.ValueRO.Max.x ||
+                    worldPosition.z < troopAABB.ValueRO.Min.y || worldPosition.z > troopAABB.ValueRO.Max.y)
+                {
+                    continue;
+                }
+
+                float2 worldPosition2d = worldPosition.xz;
+
+                if (!IsInsidePolygon(worldPosition2d, troopHullPoints))
+                {
+                    continue;
+                }
+
+                float distance = math.distance(worldPosition2d, troopAABB.ValueRO.Center);
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+
+                    newSelectedEntity = troopEntity.ValueRO.Entity;
+                    teamColor = team.ValueRO.Color;
+                }
+            }
+
+            return (newSelectedEntity, teamColor);
+        }
+
+        private static bool IsInsidePolygon(float2 point, DynamicBuffer<TroopHullPoint> troopHullPoints)
+        {
+            bool inside = false;
+            int n = troopHullPoints.Length;
+
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                float2 a = troopHullPoints[i].Position.xz;
+                float2 b = troopHullPoints[j].Position.xz;
+
+                bool intersect =
+                    a.y > point.y != b.y > point.y &&
+                    point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y + 1e-6f) + a.x;
+
+                if (intersect)
+                {
+                    inside = !inside;
+                }
+            }
+
+            return inside;
         }
     }
 }

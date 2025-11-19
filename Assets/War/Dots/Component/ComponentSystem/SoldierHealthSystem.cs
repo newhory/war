@@ -16,19 +16,19 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref SoldierAnimation soldierAnimation, in Health refHealth)
+            public void Execute(Entity entity, ref SoldierAnimation soldierAnimation, in Health refHealth)
             {
                 if (refHealth.Value > 0)
                 {
                     return;
                 }
 
-                EntityCommandBuffer.SetComponentEnabled<Alive>(entityIndex, entity, false);
-                EntityCommandBuffer.SetComponentEnabled<Movable>(entityIndex, entity, false);
-                EntityCommandBuffer.SetComponentEnabled<Rotatable>(entityIndex, entity, false);
+                EntityCommandBuffer.SetComponentEnabled<Alive>(entity.Index, entity, false);
+                EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, false);
+                EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, false);
                 
-                EntityCommandBuffer.RemoveComponent<Damaged>(entityIndex, entity);
-                EntityCommandBuffer.RemoveComponent<PhysicsCollider>(entityIndex, entity);
+                EntityCommandBuffer.RemoveComponent<Damaged>(entity.Index, entity);
+                EntityCommandBuffer.RemoveComponent<PhysicsCollider>(entity.Index, entity);
 
                 soldierAnimation.Next = SoldierAnimation.State.Dead;
             }

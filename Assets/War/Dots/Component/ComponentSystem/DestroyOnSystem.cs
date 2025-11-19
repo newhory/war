@@ -18,11 +18,11 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute([EntityIndexInQuery] int index, Entity entity, in DestroyOn destroyOn)
+            public void Execute(Entity entity, in DestroyOn destroyOn)
             {
                 if (CurrentTime >= destroyOn.DestroyTime)
                 {
-                    EntityCommandBuffer.DestroyEntity(index, entity);
+                    EntityCommandBuffer.DestroyEntity(entity.Index, entity);
                 }
             }
         }

@@ -152,7 +152,7 @@ namespace War.Dots.Component.ComponentSystem
                 (RefRW<PhysicsCollider> physicsCollider, RefRO<Team> team)
                 in
                 SystemAPI.Query<RefRW<PhysicsCollider>, RefRO<Team>>()
-                    .WithAll<JustCreated>())
+                    .WithAll<Arrow, JustCreated>())
             {
                 unsafe
                 {

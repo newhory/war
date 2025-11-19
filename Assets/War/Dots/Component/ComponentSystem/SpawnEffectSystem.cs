@@ -8,6 +8,7 @@ using Unity.Transforms;
 namespace War.Dots.Component.ComponentSystem
 {
     [UpdateInGroup(typeof(Group.SpawnSystemGroup))]
+    [RequireMatchingQueriesForUpdate]
     public partial struct SpawnEffectSystem : ISystem
     {
         [BurstCompile]
@@ -54,7 +55,7 @@ namespace War.Dots.Component.ComponentSystem
         public void OnDestroy(ref SystemState state)
         {
         }
-        
+
         public void OnUpdate(ref SystemState state)
         {
             EffectSpawner effectSpawner = SystemAPI.GetSingleton<EffectSpawner>();
@@ -71,6 +72,11 @@ namespace War.Dots.Component.ComponentSystem
 
         private void SpawnEffect(EntityQuery effectDataQuery, ref SystemState state, ref Entity protoType, float currentTime, float duration)
         {
+            if (effectDataQuery.IsEmpty)
+            {
+                return;
+            }
+
             using EntityCommandBuffer ecb = new(Allocator.TempJob);
 
             new SpawnEffectJob

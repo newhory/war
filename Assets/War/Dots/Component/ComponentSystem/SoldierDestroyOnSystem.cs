@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -27,6 +28,28 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
+        [BurstCompile]
+        private struct AddResetFormationUnitIndex : IJob
+        {
+            [ReadOnly] public NativeParallelHashSet<int>.ReadOnly NeedToUpdateFormationIds;
+
+            public DynamicBuffer<ResetFormationUnitIndex> ResetFormationUnitIndexBuffer;
+
+
+            public void Execute()
+            {
+                if (NeedToUpdateFormationIds.IsEmpty)
+                {
+                    return;
+                }
+
+                foreach (int formationId in NeedToUpdateFormationIds)
+                {
+                    ResetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = formationId } });
+                }
+            }
+        }
+
 
         private EntityQuery _destroyOnSoldierQuery;
 
@@ -43,30 +66,31 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            double currentTime = SystemAPI.Time.ElapsedTime;
+            JobHandle dependency = state.Dependency;
 
             NativeParallelHashSet<int> needToUpdateFormationIds = new(100, Allocator.TempJob);
 
-            new CatchNeedToUpdateFormationId
-                {
-                    NeedToUpdateFormationIds = needToUpdateFormationIds.AsParallelWriter(),
+            dependency =
+                new CatchNeedToUpdateFormationId
+                    {
+                        NeedToUpdateFormationIds = needToUpdateFormationIds.AsParallelWriter(),
 
-                    CurrentTime = currentTime,
-                }
-                .ScheduleParallel(_destroyOnSoldierQuery, state.Dependency)
-                .Complete();
+                        CurrentTime = SystemAPI.Time.ElapsedTime,
+                    }
+                    .ScheduleParallel(_destroyOnSoldierQuery, dependency);
 
-            if (!needToUpdateFormationIds.IsEmpty)
-            {
-                DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer = FormationUnitIndexingSystem.GetResetFormationUnitIndexBuffer(state.EntityManager);
+            dependency =
+                new AddResetFormationUnitIndex
+                    {
+                        NeedToUpdateFormationIds = needToUpdateFormationIds.AsReadOnly(),
 
-                foreach (int formationId in needToUpdateFormationIds)
-                {
-                    resetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = formationId } });
-                }
-            }
+                        ResetFormationUnitIndexBuffer = FormationUnitIndexingSystem.GetResetFormationUnitIndexBuffer(state.EntityManager)
+                    }
+                    .Schedule(dependency);
 
-            needToUpdateFormationIds.Dispose();
+            needToUpdateFormationIds.Dispose(dependency);
+            
+            dependency.Complete();
         }
     }
 }

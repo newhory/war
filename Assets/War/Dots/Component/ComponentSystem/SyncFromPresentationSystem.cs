@@ -26,7 +26,7 @@ namespace War.Dots.Component.ComponentSystem
                 (RefRW<LocalTransform> localTransform, RefRW<Velocity> velocity, RefRW<MoveSpeed> moveSpeed, RefRO<UnityNavMeshAgent> unityNavMeshAgent)
                 in
                 SystemAPI.Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<MoveSpeed>, RefRO<UnityNavMeshAgent>>()
-                    .WithAll<Alive, NavMeshAgentData>())
+                    .WithAll<Alive, NavMeshAgentData, Movable>())
             {
                 NavMeshAgent agent = unityNavMeshAgent.ValueRO.Agent.Value;
                 if (agent)
@@ -40,6 +40,26 @@ namespace War.Dots.Component.ComponentSystem
                     
                     velocity.ValueRW.Value = agentVelocity;
                     moveSpeed.ValueRW.Current = math.length(agentVelocity.xz);
+                }
+            }
+            
+            foreach (
+                (RefRW<LocalTransform> localTransform, RefRW<Velocity> velocity, RefRW<MoveSpeed> moveSpeed, RefRO<UnityNavMeshObstacle> unityNavMeshObstacle)
+                in
+                SystemAPI.Query<RefRW<LocalTransform>, RefRW<Velocity>, RefRW<MoveSpeed>, RefRO<UnityNavMeshObstacle>>()
+                    .WithAll<Alive, NavMeshAgentData>()
+                    .WithDisabled<Movable>())
+            {
+                NavMeshObstacle obstacle = unityNavMeshObstacle.ValueRO.Obstacle;
+                if (obstacle)
+                {
+                    Transform obstacleTransform = obstacle.transform;
+
+                    localTransform.ValueRW.Position = obstacleTransform.position;
+                    localTransform.ValueRW.Rotation = obstacleTransform.rotation;
+                    
+                    velocity.ValueRW.Value = float3.zero;
+                    moveSpeed.ValueRW.Current = 0f;
                 }
             }
         }

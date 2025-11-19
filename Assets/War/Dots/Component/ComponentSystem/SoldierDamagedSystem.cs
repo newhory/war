@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -103,9 +104,13 @@ namespace War.Dots.Component.ComponentSystem
         public void OnUpdate(ref SystemState state)
         {
             _localTransformLookup.Update(ref state);
+            
+            JobHandle dependency = state.Dependency;
 
-            state.Dependency = new SoldierHitDamageJob().ScheduleParallel(_soldierHitDamageQuery, state.Dependency);
-            state.Dependency = new SoldierSetTargetJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_soldierHitDamageNotAttackingQuery, state.Dependency);
+            dependency = new SoldierHitDamageJob().ScheduleParallel(_soldierHitDamageQuery, dependency);
+            dependency = new SoldierSetTargetJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_soldierHitDamageNotAttackingQuery, dependency);
+            
+            state.Dependency = dependency;
         }
     }
 }

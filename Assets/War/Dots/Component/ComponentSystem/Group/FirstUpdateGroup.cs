@@ -1,10 +1,9 @@
 ﻿using Unity.Entities;
-using Unity.Physics.Systems;
 
 
 namespace War.Dots.Component.ComponentSystem.Group
 {
-    [UpdateAfter(typeof(PhysicsSimulationGroup))]
+    [UpdateAfter(typeof(VariableRateSimulationSystemGroup))]
     [UpdateBefore(typeof(LastUpdateGroup))]
     public partial class FirstUpdateGroup : ComponentSystemGroup
     {

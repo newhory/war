@@ -17,12 +17,12 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, in TargetForAttack targetForAttack)
+            public void Execute(Entity entity, in TargetForAttack targetForAttack)
             {
                 if (targetForAttack.Target != Entity.Null)
                 {
-                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entity.Index, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entity.Index, entity, true);
                 }
             }
         }
@@ -35,7 +35,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref Destination moveToDestination, in AICheckTargetValid checkTargetValid, in LocalTransform transform, in TargetForAttack targetForAttack)
+            public void Execute(Entity entity, ref Destination moveToDestination, in AICheckTargetValid checkTargetValid, in LocalTransform transform, in TargetForAttack targetForAttack)
             {
                 if (targetForAttack.Target != Entity.Null)
                 {
@@ -43,14 +43,14 @@ namespace War.Dots.Component.ComponentSystem
 
                     moveToDestination.Position = otherPos;
 
-                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entity.Index, entity, true);
                 }
                 else
                 {
-                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, true);
-                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entity.Index, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entity.Index, entity, false);
 
-                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entity.Index, entity, false);
                 }
             }
         }

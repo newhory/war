@@ -21,7 +21,6 @@ namespace War.Dots.Component.ComponentSystem
 
 
             public void Execute(
-                [EntityIndexInQuery] int entityIndex,
                 Entity entity, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer,
                 ref Attack attack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
                 in Team team, in LocalTransform localTransform, in TargetForAttack targetForAttack,
@@ -33,8 +32,8 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     soldierAnimation.Next = SoldierAnimation.State.Default;
 
-                    EntityCommandBuffer.SetComponentEnabled<StateMoveInFormation>(entityIndex, entity, true);
-                    EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entityIndex, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<StateMoveInFormation>(entity.Index, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entity.Index, entity, false);
 
                     return;
                 }
@@ -49,8 +48,8 @@ namespace War.Dots.Component.ComponentSystem
                 switch (attack.AttackStep)
                 {
                     case Attack.Step.NotYet:
-                        EntityCommandBuffer.SetComponentEnabled<Movable>(entityIndex, entity, false);
-                        EntityCommandBuffer.SetComponentEnabled<Rotatable>(entityIndex, entity, false);
+                        EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, false);
+                        EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, false);
 
                         soldierAnimation.Next = SoldierAnimation.State.Attack;
 
@@ -66,8 +65,8 @@ namespace War.Dots.Component.ComponentSystem
                             switch (soldierWeapon.Type)
                             {
                                 case SoldierWeaponType.Melee:
-                                    EntityCommandBuffer.AppendToBuffer(entityIndex, targetForAttack.Target, new Damaged { Hitter = entity, HitDamage = attackPower.Value });
-                                    EntityCommandBuffer.AppendToBuffer(entityIndex, targetForAttack.Target, new SpawnHitEffect { Position = otherPos });
+                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.Target, new Damaged { Hitter = entity, HitDamage = attackPower.Value });
+                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.Target, new SpawnHitEffect { Position = otherPos });
 
                                     break;
 
@@ -105,13 +104,13 @@ namespace War.Dots.Component.ComponentSystem
                     case Attack.Step.Delay:
                         if (CurrentTime >= attack.AttackTime + attackData.Duration + attackData.Delay)
                         {
-                            EntityCommandBuffer.SetComponentEnabled<Movable>(entityIndex, entity, true);
-                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(entityIndex, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, true);
 
                             moveToDestination.Position = pos;
 
-                            EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, true);
-                            EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entityIndex, entity, false);
+                            EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entity.Index, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(entity.Index, entity, false);
 
                             attack.AttackStep = Attack.Step.NotYet;
                         }

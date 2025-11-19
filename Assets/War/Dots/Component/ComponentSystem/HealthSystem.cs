@@ -18,11 +18,11 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, in Health health)
+            public void Execute(Entity entity, in Health health)
             {
                 if (health.Value <= 0)
                 {
-                    EntityCommandBuffer.AddComponent(entityIndex, entity, new DestroyOn { DestroyTime = CurrentTime + 2.0f });
+                    EntityCommandBuffer.AddComponent(entity.Index, entity, new DestroyOn { DestroyTime = CurrentTime + 2.0f });
                 }
             }
         }

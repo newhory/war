@@ -21,29 +21,25 @@ namespace War.Dots.Component.ComponentSystem
         public void OnUpdate(ref SystemState state)
         {
             foreach (
-                (RefRO<NavMeshAgentData> agentData, RefRO<Forward> forward, RefRO<Acceleration> acceleration, RefRO<MoveSpeed> moveSpeed, RefRO<Destination> destination, RefRO<UnityNavMeshAgent> unityNavMeshAgent, RefRO<UnityNavMeshObstacle> unityNavMeshObstacle, Entity entity)
+                (RefRO<NavMeshAgentData> agentData, RefRO<Acceleration> acceleration, RefRO<MoveSpeed> moveSpeed, RefRO<Destination> destination, RefRO<UnityNavMeshAgent> unityNavMeshAgent, RefRO<UnityNavMeshObstacle> unityNavMeshObstacle)
                 in
-                SystemAPI.Query<RefRO<NavMeshAgentData>, RefRO<Forward>, RefRO<Acceleration>, RefRO<MoveSpeed>, RefRO<Destination>, RefRO<UnityNavMeshAgent>, RefRO<UnityNavMeshObstacle>>()
-                    .WithEntityAccess())
+                SystemAPI.Query<RefRO<NavMeshAgentData>, RefRO<Acceleration>, RefRO<MoveSpeed>, RefRO<Destination>, RefRO<UnityNavMeshAgent>, RefRO<UnityNavMeshObstacle>>()
+                    .WithAll<Movable>())
             {
-                bool isMovable = state.EntityManager.IsComponentEnabled<Movable>(entity);
-
-                NavMeshAgent agent = unityNavMeshAgent.ValueRO.Agent.Value;
-                NavMeshObstacle obstacle = unityNavMeshObstacle.ValueRO.Obstacle.Value;
-
-                if (isMovable)
+                NavMeshObstacle obstacle = unityNavMeshObstacle.ValueRO.Obstacle;
+                if (obstacle && obstacle.enabled)
                 {
                     obstacle.enabled = false;
-                    agent.enabled = true;
-                }
-                else
-                {
-                    agent.enabled = false;
-                    obstacle.enabled = true;
                 }
 
-                if (isMovable && agent)
+                NavMeshAgent agent = unityNavMeshAgent.ValueRO.Agent;
+                if (agent)
                 {
+                    if (!agent.enabled)
+                    {
+                        agent.enabled = true;
+                    }
+
                     if (!Mathf.Approximately(agentData.ValueRO.Radius, agent.radius))
                     {
                         agent.radius = agentData.ValueRO.Radius;
@@ -58,15 +54,36 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         agent.speed = moveSpeed.ValueRO.CurrentMax;
                     }
+                    
+                    float3 agentDestination = agent.destination;
 
-                    if (!mathf.Approximately(agent.destination, destination.ValueRO.Position))
+                    if (!mathf.Approximately(agentDestination.xz, destination.ValueRO.Position.xz))
                     {
                         agent.destination = destination.ValueRO.Position;
                     }
                 }
+            }
 
-                if (!isMovable && obstacle)
+            foreach (
+                (RefRO<NavMeshAgentData> agentData, RefRO<Forward> forward, RefRO<UnityNavMeshAgent> unityNavMeshAgent, RefRO<UnityNavMeshObstacle> unityNavMeshObstacle)
+                in
+                SystemAPI.Query<RefRO<NavMeshAgentData>, RefRO<Forward>, RefRO<UnityNavMeshAgent>, RefRO<UnityNavMeshObstacle>>()
+                    .WithDisabled<Movable>())
+            {
+                NavMeshAgent agent = unityNavMeshAgent.ValueRO.Agent;
+                if (agent && agent.enabled)
                 {
+                    agent.enabled = false;
+                }
+
+                NavMeshObstacle obstacle = unityNavMeshObstacle.ValueRO.Obstacle;
+                if (obstacle)
+                {
+                    if (!obstacle.enabled)
+                    {
+                        obstacle.enabled = true;
+                    }
+
                     float obstacleRadius = agentData.ValueRO.Radius * 0.5f;
 
                     if (!Mathf.Approximately(obstacleRadius, obstacle.radius))

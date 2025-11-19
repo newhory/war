@@ -165,7 +165,16 @@ namespace War.Dots.Component.ComponentSystem
 
                 EntityCommandBuffer.AddSharedComponent(index, troopEntity, new Troop { Id = troopForSpawn.TroopId });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Team { Color = troopForSpawn.TeamColor });
-                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopEntity { Entity = troopEntity });
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopEntity { Id = troopForSpawn.TroopId, Entity = troopEntity });
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopSelected());
+                EntityCommandBuffer.SetComponentEnabled<TroopSelected>(index, troopEntity, false);
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAABB { Min = float2.zero, Max = float2.zero, Padding = 0.2f });
+                
+                EntityCommandBuffer.AddBuffer<TroopHullPoint>(index, troopEntity);
+                EntityCommandBuffer.AddBuffer<TroopSoldierPosition>(index, troopEntity);
+                EntityCommandBuffer.AddBuffer<TroopSoldierIndexBuffer>(index, troopEntity);
+                EntityCommandBuffer.AddBuffer<TroopLowerSoldierIndexBuffer>(index, troopEntity);
+                EntityCommandBuffer.AddBuffer<TroopUpperSoldierIndexBuffer>(index, troopEntity);
 
             #endregion
 

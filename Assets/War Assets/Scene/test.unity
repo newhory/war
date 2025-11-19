@@ -1282,6 +1282,7 @@ GameObject:
   m_Component:
   - component: {fileID: 425242696}
   - component: {fileID: 425242695}
+  - component: {fileID: 425242697}
   m_Layer: 0
   m_Name: PlayerInput
   m_TagString: Untagged
@@ -1323,6 +1324,25 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &425242697
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 425242693}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f13930e11ba04f8895f25884e0131d5a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::War.TroopSelectedRenderer
+  lineRendererPrefab: {fileID: 3041782177431831617, guid: 5a507a78dd6fabd4c89d08110712390e,
+    type: 3}
+  widthMultiplier: 0.2
+  numCapVertices: 8
+  numCornerVertices: 8
+  samplesPerUnit: 8
+  height: 0.5
 --- !u!1 &462440625
 GameObject:
   m_ObjectHideFlags: 0
@@ -1412,7 +1432,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::War.ControlTroop
   cinemachineBrain: {fileID: 1053640288}
-  dragOffset: 5
 --- !u!1 &586695395
 GameObject:
   m_ObjectHideFlags: 0
