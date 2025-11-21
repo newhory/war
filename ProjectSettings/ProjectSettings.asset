@@ -764,8 +764,8 @@ PlayerSettings:
   webWasm2023: 1
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
-    Standalone: 
-    WebGL: HYBRID_ARROW
+    Standalone: UNITY_PIPELINE_URP
+    WebGL: HYBRID_ARROW;UNITY_PIPELINE_URP
   additionalCompilerArguments: {}
   platformArchitecture:
     iPhone: 1
