@@ -96,9 +96,6 @@ namespace War.Dots.Component.ComponentSystem
             {
                 state.EntityManager.SetComponentEnabled<OnPointerPressEnd>(s_pointInput, false);
 
-                s_setCurrentSpawnSoldierData = false;
-                state.EntityManager.SetComponentEnabled<UnsetSpawnData>(s_pointInput, true);
-
                 OnPointerDragEnd onPointerDragEnd = state.EntityManager.GetComponentData<OnPointerDragEnd>(s_pointInput);
 
                 raycastInput.Start = onPointerDragEnd.Ray.Origin;
