@@ -1472,6 +1472,7 @@ MonoBehaviour:
   resetButton: {fileID: 1086557082}
   blueTeamButtonRoot: {fileID: 181229090}
   redTeamButtonRoot: {fileID: 789104771}
+  spawnToggleGroup: {fileID: 586695399}
   soldierCountText: {fileID: 1171232994}
 --- !u!4 &425242696
 Transform:
