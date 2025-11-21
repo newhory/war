@@ -1,5 +1,4 @@
-﻿using System;
-using Unity.Entities;
+﻿using Unity.Entities;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,7 +9,7 @@ namespace War
     using Dots.Component.ComponentSystem;
 
 
-    public class PlayerInput : MonoBehaviour
+    public class UIEventReceiver : MonoBehaviour
     {
     #region serialized fields
 
@@ -23,6 +22,8 @@ namespace War
         [SerializeField] private GameObject blueTeamButtonRoot;
         [SerializeField] private GameObject redTeamButtonRoot;
 
+        [SerializeField] private ToggleGroup spawnToggleGroup;
+
         [SerializeField] private TMPro.TextMeshProUGUI soldierCountText;
 
     #endregion
@@ -34,120 +35,157 @@ namespace War
             resetButton.gameObject.SetActive(false);
         }
 
-        private void Update()
-        {
-            soldierCountText.text = PlayerInputSystem.SoldierCount.ToString();
-        }
+        private void Update() => soldierCountText.text = PlayerInputSystem.SoldierCount.ToString();
 
-        public void RespawnBlueSpear()
+        public void SetRespawnBlueSpear(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 1,
                     TeamColor = TeamColor.Blue,
                     SoldierType = SoldierType.Spear,
                     Position = blueRespawn.position,
                     Rotation = blueRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnBlueArcher()
+        public void SetRespawnBlueArcher(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 1,
                     TeamColor = TeamColor.Blue,
                     SoldierType = SoldierType.Archer,
                     Position = blueRespawn.position,
                     Rotation = blueRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnBlueShield()
+        public void SetRespawnBlueShield(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 1,
                     TeamColor = TeamColor.Blue,
                     SoldierType = SoldierType.Shield,
                     Position = blueRespawn.position,
                     Rotation = blueRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnBlueCavalry()
+        public void SetRespawnBlueCavalry(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 1,
                     TeamColor = TeamColor.Blue,
                     SoldierType = SoldierType.Cavalry,
                     Position = blueRespawn.position,
                     Rotation = blueRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnRedSpear()
+        public void SetRespawnRedSpear(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 2,
                     TeamColor = TeamColor.Red,
                     SoldierType = SoldierType.Spear,
                     Position = redRespawn.position,
                     Rotation = redRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnRedArcher()
+        public void SetRespawnRedArcher(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 2,
                     TeamColor = TeamColor.Red,
                     SoldierType = SoldierType.Archer,
                     Position = redRespawn.position,
                     Rotation = redRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnRedShield()
+        public void SetRespawnRedShield(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 2,
                     TeamColor = TeamColor.Red,
                     SoldierType = SoldierType.Shield,
                     Position = redRespawn.position,
                     Rotation = redRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
-        public void RespawnRedCavalry()
+        public void SetRespawnRedCavalry(bool isToggle)
         {
-            SpawnSoldier(
+            if (!isToggle)
+            {
+                SpawnInputSystem.UnsetCurrentSpawnSoldierData();
+                return;
+            }
+
+            SpawnInputSystem.SetCurrentSpawnSoldierData(
                 new SpawnSoldierData
                 {
-                    TroopId = 2,
                     TeamColor = TeamColor.Red,
                     SoldierType = SoldierType.Cavalry,
                     Position = redRespawn.position,
                     Rotation = redRespawn.rotation,
-                    Count = 10
+                    Count = Setting.Instance.spawnSoldierCount
                 });
         }
 
@@ -155,24 +193,26 @@ namespace War
         {
             PlayerInputSystem.StartBattle();
 
-            //blueTeamButtonRoot.SetActive(false);
-            //redTeamButtonRoot.SetActive(false);
-
             startBattleButton.gameObject.SetActive(false);
             resetButton.gameObject.SetActive(true);
+
+            spawnToggleGroup.SetAllTogglesOff();
+
+            blueTeamButtonRoot.SetActive(false);
+            redTeamButtonRoot.SetActive(false);
         }
 
         public void ResetBattle()
         {
             PlayerInputSystem.ResetBattle();
 
-            //blueTeamButtonRoot.SetActive(true);
-            //redTeamButtonRoot.SetActive(true);
-
             startBattleButton.gameObject.SetActive(true);
             resetButton.gameObject.SetActive(false);
-        }
 
-        private static void SpawnSoldier(SpawnSoldierData spawn) => SpawnSoldierSystem.SpawnSoldier(World.DefaultGameObjectInjectionWorld.EntityManager, spawn);
+            blueTeamButtonRoot.SetActive(true);
+            redTeamButtonRoot.SetActive(true);
+
+            spawnToggleGroup.SetAllTogglesOff();
+        }
     }
 }

@@ -36,8 +36,6 @@ namespace War.Dots.Component
     
     public struct SpawnSoldierData : IBufferElementData
     {
-        public int TroopId;
-
         public TeamColor TeamColor;
         public SoldierType SoldierType;
 

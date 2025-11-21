@@ -11,7 +11,7 @@ namespace War
     {
     #region serialized fields
 
-        [System.Serializable]
+        [Serializable]
         public struct SoldierPrefabs
         {
             public GameObject blueTeamPrefab;
@@ -23,12 +23,15 @@ namespace War
         public SoldierPrefabs archer;
         public SoldierPrefabs shield;
         public SoldierPrefabs cavalry;
+        public int spawnSoldierCount = 16;
+        public int troopHorizonSoldierCount = 4;
 
         [Header("Arrow")]
         [Tooltip("For Hybrid Render")]
         public GameObject arrowRenderMeshPrefab;
 
     #endregion
+
 
         public static int WorldLayer { get; private set; }
         public static int RedTeamLayer { get; private set; }

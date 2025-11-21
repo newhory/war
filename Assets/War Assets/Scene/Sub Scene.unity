@@ -120,36 +120,6 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &157451319 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 7403940785006871268, guid: f09fb0d789cf1444d9fd898f4c954e4d,
-    type: 3}
-  m_PrefabInstance: {fileID: 2014221950805335717}
-  m_PrefabAsset: {fileID: 0}
---- !u!114 &157451324
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 157451319}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bb54ea4f67dc17342bcd49954c53502d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.Physics.Hybrid::Unity.Physics.Authoring.PhysicsDebugDisplayAuthoring
-  DrawColliders: 0
-  DrawColliderEdges: 0
-  DrawColliderAabbs: 0
-  DrawMassProperties: 0
-  DrawBroadphase: 0
-  DrawContacts: 0
-  DrawCollisionEvents: 0
-  DrawTriggerEvents: 0
-  DrawJoints: 0
-  ColliderDisplayMode: 0
-  ColliderEdgesDisplayMode: 0
-  ColliderAabbDisplayMode: 0
 --- !u!1001 &182164926
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -416,11 +386,7 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents:
-    - targetCorrespondingSourceObject: {fileID: 7403940785006871268, guid: f09fb0d789cf1444d9fd898f4c954e4d,
-        type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 157451324}
+    m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: f09fb0d789cf1444d9fd898f4c954e4d, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

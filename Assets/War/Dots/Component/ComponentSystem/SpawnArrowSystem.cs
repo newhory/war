@@ -72,6 +72,34 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
+        private partial struct SetCollisionJob : IJobEntity
+        {
+            [ReadOnly] public int WorldLayer;
+            [ReadOnly] public int RedTeamLayer;
+            [ReadOnly] public int BlueTeamLayer;
+
+
+            public void Execute(ref PhysicsCollider physicsCollider, in Team team)
+            {
+                unsafe
+                {
+                    CollisionFilter collisionFilter = physicsCollider.ColliderPtr->GetCollisionFilter();
+
+                    collisionFilter.CollidesWith =
+                        1u << team.Color switch { TeamColor.Blue => RedTeamLayer, TeamColor.Red => BlueTeamLayer, _ => 0 } | 1u << WorldLayer;
+
+                    switch (physicsCollider.Value.Value.Type)
+                    {
+                        case ColliderType.Box:
+                            physicsCollider.Value = BoxCollider.Create(((BoxCollider*)physicsCollider.ColliderPtr)->Geometry, collisionFilter);
+                            break;
+                    }
+
+                    physicsCollider.ColliderPtr->SetCollisionResponse(CollisionResponsePolicy.CollideRaiseCollisionEvents);
+                }
+            }
+        }
+
 
         private EntityQuery _spawnArrowQuery;
         private EntityQuery _justCreatedArrowQuery;
@@ -86,11 +114,11 @@ namespace War.Dots.Component.ComponentSystem
                 new ObjectPool<UnityEngine.GameObject>(
                     createFunc: () => UnityEngine.Object.Instantiate(Setting.Instance.arrowRenderMeshPrefab),
                     actionOnGet: gameObject => gameObject.SetActive(true),
-                    actionOnRelease: gameObject => gameObject.SetActive(false),
+                    actionOnRelease: gameObject => gameObject?.SetActive(false),
                     actionOnDestroy: UnityEngine.Object.Destroy,
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 10);
-            
+
             s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
         }
 
@@ -112,7 +140,8 @@ namespace War.Dots.Component.ComponentSystem
 
             _justCreatedArrowQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Arrow, JustCreated>()
+                    .WithAll<Arrow, Team, JustCreated>()
+                    .WithAllRW<PhysicsCollider>()
                     .Build();
         }
 
@@ -148,28 +177,14 @@ namespace War.Dots.Component.ComponentSystem
                 return;
             }
 
-            foreach (
-                (RefRW<PhysicsCollider> physicsCollider, RefRO<Team> team)
-                in
-                SystemAPI.Query<RefRW<PhysicsCollider>, RefRO<Team>>()
-                    .WithAll<Arrow, JustCreated>())
-            {
-                unsafe
+            new SetCollisionJob
                 {
-                    CollisionFilter collisionFilter = physicsCollider.ValueRO.ColliderPtr->GetCollisionFilter();
-
-                    collisionFilter.CollidesWith = 1u << Setting.GetEnemyLayer(team.ValueRO.Color) | 1u << Setting.WorldLayer;
-
-                    switch (physicsCollider.ValueRO.Value.Value.Type)
-                    {
-                        case ColliderType.Box:
-                            physicsCollider.ValueRW.Value = BoxCollider.Create(((BoxCollider*)physicsCollider.ValueRO.ColliderPtr)->Geometry, collisionFilter);
-                            break;
-                    }
-
-                    physicsCollider.ValueRO.ColliderPtr->SetCollisionResponse(CollisionResponsePolicy.CollideRaiseCollisionEvents);
+                    WorldLayer = Setting.WorldLayer,
+                    RedTeamLayer = Setting.RedTeamLayer,
+                    BlueTeamLayer = Setting.BlueTeamLayer,
                 }
-            }
+                .ScheduleParallel(_justCreatedArrowQuery, state.Dependency)
+                .Complete();
 
 #if HYBRID_ARROW
             s_pooledGameObjectBuffer.Clear();

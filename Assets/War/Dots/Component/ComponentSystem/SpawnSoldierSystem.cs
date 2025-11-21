@@ -11,7 +11,7 @@ using ZLinq;
 namespace War.Dots.Component.ComponentSystem
 {
     [UpdateInGroup(typeof(Group.SpawnSystemGroup))]
-    public partial class SpawnSoldierSystem : SystemBase
+    public partial struct SpawnSoldierSystem : ISystem, ISystemStartStop
     {
         private struct SoldierForSpawn
         {
@@ -32,6 +32,15 @@ namespace War.Dots.Component.ComponentSystem
             public float2 TroopPosition;
             public quaternion TroopRotation;
             public TeamColor TeamColor;
+            public int TroopHorizonSoldierCount;
+        }
+
+        private struct JustSpawnedSoldier : IComponentData
+        {
+        }
+
+        private struct JustSpawnedTroop : IComponentData
+        {
         }
 
         [BurstCompile]
@@ -60,7 +69,7 @@ namespace War.Dots.Component.ComponentSystem
             #region soldier
 
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Soldier { Type = soldierForSpawn.SoldierType });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAttachedTroop());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAttachedTroop { TroopId = soldierForSpawn.TroopId });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierWeapon { Type = soldierData.weapon });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAnimation { Next = SoldierAnimation.State.Default });
 
@@ -85,7 +94,7 @@ namespace War.Dots.Component.ComponentSystem
             #region formation
 
                 EntityCommandBuffer.AddSharedComponent(index, soldierEntity, new Formation { Id = soldierForSpawn.TroopId });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new FormationUnit { Radius = soldierData.radiusInFormation });
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new FormationUnit { FormationId = soldierForSpawn.TroopId, Radius = soldierData.radiusInFormation });
 
             #endregion
 
@@ -144,6 +153,8 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(index, soldierEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(index, soldierEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(index, soldierEntity, false);
+
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new JustSpawnedSoldier());
             }
         }
 
@@ -169,7 +180,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopSelected());
                 EntityCommandBuffer.SetComponentEnabled<TroopSelected>(index, troopEntity, false);
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAABB { Min = float2.zero, Max = float2.zero, Padding = 0.2f });
-                
+
                 EntityCommandBuffer.AddBuffer<TroopHullPoint>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopSoldierPosition>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopSoldierIndexBuffer>(index, troopEntity);
@@ -186,8 +197,9 @@ namespace War.Dots.Component.ComponentSystem
                     troopEntity,
                     new FormationEntity
                     {
+                        Id = troopForSpawn.TroopId,
                         Entity = troopEntity,
-                        HorizontalUnitCount = 10,
+                        HorizontalUnitCount = troopForSpawn.TroopHorizonSoldierCount,
                     });
 
             #endregion
@@ -233,41 +245,186 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(index, troopEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(index, troopEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(index, troopEntity, false);
+
+                EntityCommandBuffer.AddComponent(index, troopEntity, new JustSpawnedTroop());
+            }
+        }
+
+        [BurstCompile]
+        private partial struct CollectTroopJob : IJobEntity
+        {
+            public NativeParallelHashMap<int, Entity>.ParallelWriter TroopEntityMap;
+
+
+            public void Execute(in TroopEntity troopEntity) => TroopEntityMap.TryAdd(troopEntity.Id, troopEntity.Entity);
+        }
+
+        private struct FillSoldierIdJob : IJob
+        {
+            public NativeArray<int> SoldierIds;
+
+
+            public void Execute()
+            {
+                for (int i = 0, count = SoldierIds.Length; i < count; ++i)
+                {
+                    SoldierIds[i] = ++s_soldierId;
+                }
+            }
+        }
+
+        [BurstCompile]
+        private partial struct SetSoldierComponentJob : IJobEntity
+        {
+            [ReadOnly] public NativeParallelHashMap<int, Entity>.ReadOnly TroopEntityMap;
+            [ReadOnly] public NativeArray<int>.ReadOnly SoldierIds;
+
+            [ReadOnly] public int ArrowLayer;
+            [ReadOnly] public int RedTeamLayer;
+            [ReadOnly] public int BlueTeamLayer;
+
+
+            public void Execute([EntityIndexInQuery] int entityIndex, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
+            {
+                soldier.Id = SoldierIds[entityIndex];
+
+                if (TroopEntityMap.TryGetValue(soldierAttachedTroop.TroopId, out Entity troopEntity))
+                {
+                    soldierAttachedTroop.TroopEntity = troopEntity;
+                    formationUnit.FormationEntity = troopEntity;
+                }
+
+                if (physicsCollider.Value is { IsCreated: true, Value: { Type: ColliderType.Capsule } })
+                {
+                    unsafe
+                    {
+                        CapsuleCollider* capsuleCollider = (CapsuleCollider*)physicsCollider.ColliderPtr;
+                        CapsuleGeometry geometry = capsuleCollider->Geometry;
+
+                        geometry.Radius = navMeshAgentData.Radius * 0.9f;
+
+                        BlobAssetReference<Collider> newCapsule =
+                            CapsuleCollider.Create(
+                                geometry,
+                                new CollisionFilter
+                                {
+                                    BelongsTo = 1u << team.Color switch { TeamColor.Red => RedTeamLayer, TeamColor.Blue => BlueTeamLayer, _ => (int)TeamColor.None },
+                                    CollidesWith = 1u << ArrowLayer,
+                                });
+
+                        physicsCollider.Value = newCapsule;
+                    }
+                }
+            }
+        }
+
+
+#if UNITY_EDITOR
+        private partial struct SetSpawnSoldierNameJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            public void Execute(Entity entity, in Soldier soldier, in SoldierAttachedTroop soldierAttachedTroop, in Team team) => EntityCommandBuffer.SetName(entity.Index, entity, $"<[{team.Color}]Troop {soldierAttachedTroop.TroopId}>{soldier.Type}_{soldier.Id}");
+        }
+
+        private partial struct SetSpawnTroopNameJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            public void Execute(Entity entity, in TroopEntity troopEntity, in Team team) => EntityCommandBuffer.SetName(entity.Index, entity, $"[{team.Color}]{nameof(Troop)} {troopEntity.Id}");
+        }
+#endif
+
+        [BurstCompile]
+        private partial struct RemoveJustSpawnedSoldierJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<JustSpawnedSoldier>(entity.Index, entity);
+        }
+
+        [BurstCompile]
+        private partial struct RemoveJustSpawnedTroopJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<JustSpawnedTroop>(entity.Index, entity);
+        }
+
+        [BurstCompile]
+        private partial struct AddResetFormationUnitIndexJob : IJobEntity
+        {
+            [ReadOnly] public NativeHashSet<int>.ReadOnly ResetFormationIds;
+
+
+            public void Execute(DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer)
+            {
+                foreach (int resetFormationId in ResetFormationIds)
+                {
+                    resetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = resetFormationId } });
+                }
             }
         }
 
 
         private static Entity s_spawnSoldierDataBufferEntity;
+        private static int s_troopId;
+        private static int s_soldierId;
 
+
+        public static void SpawnSoldier(EntityManager entityManager, SpawnSoldierData spawn) => GetSpawnSoldierDataBuffer(entityManager).Add(spawn);
 
         private static DynamicBuffer<SpawnSoldierData> GetSpawnSoldierDataBuffer(EntityManager entityManager) =>
             s_spawnSoldierDataBufferEntity == Entity.Null
                 ? default
                 : entityManager.GetBuffer<SpawnSoldierData>(s_spawnSoldierDataBufferEntity);
 
-        public static void SpawnSoldier(EntityManager entityManager, SpawnSoldierData spawn) => GetSpawnSoldierDataBuffer(entityManager).Add(spawn);
 
-        private static int s_soldierId;
-
-
-        private EntityQuery _troopEntityQuery;
+        private EntityQuery _troopQuery;
+        private EntityQuery _spawnTroopQuery;
+        private EntityQuery _spawnSoldierQuery;
+        private EntityQuery _resetFormationUnitIndexQuery;
 
         private Random _rand;
 
 
-        protected override void OnCreate()
+        public void OnCreate(ref SystemState state)
         {
-            RequireForUpdate<SoldierSpawner>();
+            state.RequireForUpdate<SoldierSpawner>();
 
-            _troopEntityQuery = SystemAPI.QueryBuilder().WithAll<Troop, TroopEntity>().Build();
-        }
+            _troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, TroopEntity>().Build();
 
-        protected override void OnDestroy()
-        {
+            _spawnTroopQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<Troop, TroopEntity, Team, JustSpawnedTroop>()
+                    .Build();
+
+            _spawnSoldierQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<NavMeshAgentData, Team, JustSpawnedSoldier>()
+                    .WithAllRW<Soldier>()
+                    .WithAllRW<SoldierAttachedTroop, FormationUnit>()
+                    .WithAllRW<PhysicsCollider>()
+                    .Build();
+
+            _resetFormationUnitIndexQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<ResetFormationUnitIndex>()
+                    .Build();
+
+            s_troopId = 1;
             s_soldierId = 0;
         }
 
-        protected override void OnStartRunning()
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+
+        public void OnStartRunning(ref SystemState state)
         {
             s_spawnSoldierDataBufferEntity = SystemAPI.GetSingletonEntity<SoldierSpawner>();
 
@@ -275,41 +432,60 @@ namespace War.Dots.Component.ComponentSystem
             _rand.InitState();
         }
 
-        protected override void OnStopRunning()
+        public void OnStopRunning(ref SystemState state)
         {
-            EntityManager.DestroyEntity(s_spawnSoldierDataBufferEntity);
+            state.EntityManager.DestroyEntity(s_spawnSoldierDataBufferEntity);
             s_spawnSoldierDataBufferEntity = Entity.Null;
         }
 
-        protected override void OnUpdate()
+        public void OnUpdate(ref SystemState state)
         {
-            if (!EntityManager.HasBuffer<SpawnSoldierData>(s_spawnSoldierDataBufferEntity))
+            if (!state.EntityManager.HasBuffer<SpawnSoldierData>(s_spawnSoldierDataBufferEntity))
             {
                 return;
             }
 
-            DynamicBuffer<SpawnSoldierData> spawnSoldierDataBuffer = EntityManager.GetBuffer<SpawnSoldierData>(s_spawnSoldierDataBufferEntity);
+            DynamicBuffer<SpawnSoldierData> spawnSoldierDataBuffer = state.EntityManager.GetBuffer<SpawnSoldierData>(s_spawnSoldierDataBufferEntity);
             if (spawnSoldierDataBuffer.Length == 0)
             {
                 return;
             }
 
-            SoldierSpawner soldierSpawner = EntityManager.GetComponentData<SoldierSpawner>(s_spawnSoldierDataBufferEntity);
+            SoldierSpawner soldierSpawner = state.EntityManager.GetComponentData<SoldierSpawner>(s_spawnSoldierDataBufferEntity);
 
-            using NativeList<SoldierForSpawn> spawnSoldierList = new(Allocator.TempJob);
-            using NativeList<TroopForSpawn> spawnTroopList = new(Allocator.TempJob);
-            using NativeHashSet<int> resetFormationIds = new(2, Allocator.TempJob);
+            NativeList<SoldierForSpawn> spawnSoldierList = new(Allocator.TempJob);
+            NativeList<TroopForSpawn> spawnTroopList = new(Allocator.TempJob);
 
-            DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer = FormationUnitIndexingSystem.GetResetFormationUnitIndexBuffer(EntityManager);
+            NativeHashSet<int> resetFormationIds = new(2, Allocator.TempJob);
+
+            int currentTroopId = s_troopId;
 
             foreach (SpawnSoldierData spawnSoldierData in spawnSoldierDataBuffer)
             {
                 for (int i = 0, count = spawnSoldierData.Count; i < count; ++i)
                 {
+                    _troopQuery.SetSharedComponentFilter(new Troop { Id = currentTroopId });
+
+                    if (_troopQuery.CalculateEntityCount() == 0 &&
+                        !spawnTroopList.AsValueEnumerable().Any(troop => troop.TroopId == currentTroopId))
+                    {
+                        spawnTroopList.Add(
+                            new TroopForSpawn
+                            {
+                                TroopId = s_troopId,
+                                TroopPosition = spawnSoldierData.Position.xz,
+                                TroopRotation = spawnSoldierData.Rotation,
+                                TeamColor = spawnSoldierData.TeamColor,
+                                TroopHorizonSoldierCount = Setting.Instance.troopHorizonSoldierCount,
+                            });
+
+                        currentTroopId = s_troopId++;
+                    }
+
                     spawnSoldierList.Add(
                         new SoldierForSpawn
                         {
-                            TroopId = spawnSoldierData.TroopId,
+                            TroopId = currentTroopId,
                             TeamColor = spawnSoldierData.TeamColor,
                             SoldierType = spawnSoldierData.SoldierType,
 
@@ -326,145 +502,95 @@ namespace War.Dots.Component.ComponentSystem
                             Rotation = spawnSoldierData.Rotation,
                         });
 
-                    _troopEntityQuery.SetSharedComponentFilter(new Troop { Id = spawnSoldierData.TroopId });
-
-                    if (_troopEntityQuery.CalculateEntityCount() == 0 &&
-                        !spawnTroopList.AsValueEnumerable().Any(troop => troop.TroopId == spawnSoldierData.TroopId))
-                    {
-                        spawnTroopList.Add(
-                            new TroopForSpawn
-                            {
-                                TroopId = spawnSoldierData.TroopId,
-                                TroopPosition = spawnSoldierData.Position.xz,
-                                TroopRotation = spawnSoldierData.Rotation,
-                                TeamColor = spawnSoldierData.TeamColor,
-                            });
-                    }
-
-                    if (resetFormationIds.Add(spawnSoldierData.TroopId))
-                    {
-                        resetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = spawnSoldierData.TroopId } });
-                    }
+                    resetFormationIds.Add(currentTroopId);
                 }
             }
 
             spawnSoldierDataBuffer.Clear();
 
+            JobHandle dependency = state.Dependency;
+
             bool isNewTroopSpawned = spawnTroopList.Length > 0;
             if (isNewTroopSpawned)
             {
-                using EntityCommandBuffer troopEcb = new(Allocator.TempJob);
+                using EntityCommandBuffer ecb = new(Allocator.TempJob);
                 new SpawnTroopJob
                     {
                         TroopForSpawns = spawnTroopList.AsReadOnly(),
-                        EntityCommandBuffer = troopEcb.AsParallelWriter(),
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
                     }
-                    .Schedule(spawnTroopList.Length, 64, Dependency)
+                    .Schedule(spawnTroopList.Length, 64, dependency)
                     .Complete();
-                troopEcb.Playback(EntityManager);
+
+                ecb.Playback(state.EntityManager);
+
+                spawnTroopList.Dispose();
             }
 
             bool isNewSoldierSpawned = spawnSoldierList.Length > 0;
             if (isNewSoldierSpawned)
             {
-                using EntityCommandBuffer ecbSpawnSoldier = new(Allocator.TempJob);
+                using EntityCommandBuffer ecb = new(Allocator.TempJob);
+
                 new SpawnSoldierJob
                     {
                         SoldierProtoType = soldierSpawner.SoldierProtoType,
                         SoldierForSpawns = spawnSoldierList.AsReadOnly(),
-                        EntityCommandBuffer = ecbSpawnSoldier.AsParallelWriter(),
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
                     }
-                    .Schedule(spawnSoldierList.Length, 64, Dependency)
+                    .Schedule(spawnSoldierList.Length, 64, dependency)
                     .Complete();
-                ecbSpawnSoldier.Playback(EntityManager);
+
+                ecb.Playback(state.EntityManager);
+
+                spawnSoldierList.Dispose();
             }
 
-            EntityManager.GetAllUniqueSharedComponents(out NativeList<Troop> troops, Allocator.Temp);
+            new AddResetFormationUnitIndexJob { ResetFormationIds = resetFormationIds.AsReadOnly() }.Schedule(_resetFormationUnitIndexQuery, dependency).Complete();
+            resetFormationIds.Dispose();
 
-            foreach (Troop troop in troops)
-            {
-                _troopEntityQuery.SetSharedComponentFilter(troop);
-                if (_troopEntityQuery.CalculateEntityCount() != 1)
+            NativeParallelHashMap<int, Entity> troopEntityMap = new(_troopQuery.CalculateEntityCount(), Allocator.TempJob);
+            NativeArray<int> soldierIds = new(_spawnSoldierQuery.CalculateEntityCount(), Allocator.TempJob);
+
+            dependency = new CollectTroopJob { TroopEntityMap = troopEntityMap.AsParallelWriter() }.ScheduleParallel(_troopQuery, dependency);
+            new FillSoldierIdJob { SoldierIds = soldierIds }.Schedule(dependency).Complete();
+
+            new SetSoldierComponentJob
                 {
-                    continue;
+                    TroopEntityMap = troopEntityMap.AsReadOnly(),
+                    SoldierIds = soldierIds.AsReadOnly(),
+
+                    ArrowLayer = Setting.ArrowLayer,
+                    RedTeamLayer = Setting.RedTeamLayer,
+                    BlueTeamLayer = Setting.BlueTeamLayer,
                 }
+                .ScheduleParallel(_spawnSoldierQuery, dependency)
+                .Complete();
 
-                TroopEntity troopEntity = _troopEntityQuery.GetSingleton<TroopEntity>();
+            troopEntityMap.Dispose();
+            soldierIds.Dispose();
 
-                foreach (
-                    (RefRW<Soldier> soldier, RefRW<SoldierAttachedTroop> soldierAttachedTroop, RefRW<PhysicsCollider> physicsCollider, RefRO<NavMeshAgentData> navMeshAgentData, RefRO<Team> team)
-                    in
-                    SystemAPI.Query<RefRW<Soldier>, RefRW<SoldierAttachedTroop>, RefRW<PhysicsCollider>, RefRO<NavMeshAgentData>, RefRO<Team>>()
-                        .WithAll<Alive, Troop>()
-                        .WithNone<UnityTransform, UnityAnimator>()
-                        .WithSharedComponentFilter(troop))
-                {
-                    soldier.ValueRW.Id = ++s_soldierId;
-                    soldierAttachedTroop.ValueRW.TroopEntity = troopEntity.Entity;
-
-                    if (physicsCollider.ValueRO.Value is { IsCreated: true, Value: { Type: ColliderType.Capsule } })
-                    {
-                        unsafe
-                        {
-                            CapsuleCollider* capsuleCollider = (CapsuleCollider*)physicsCollider.ValueRO.ColliderPtr;
-                            CapsuleGeometry geometry = capsuleCollider->Geometry;
-
-                            geometry.Radius = navMeshAgentData.ValueRO.Radius * 0.9f;
-
-                            BlobAssetReference<Collider> newCapsule =
-                                CapsuleCollider.Create(
-                                    geometry,
-                                    new CollisionFilter
-                                    {
-                                        BelongsTo = 1u << Setting.GetMyTeamLayer(team.ValueRO.Color),
-                                        CollidesWith = 1u << Setting.ArrowLayer,
-                                    });
-
-                            physicsCollider.ValueRW.Value = newCapsule;
-                        }
-                    }
-                }
-            }
-
-            troops.Dispose();
+            EntityCommandBuffer ecbRemoveJustSpawned;
 #if UNITY_EDITOR
-            if (isNewSoldierSpawned)
-            {
-                using EntityCommandBuffer ecbSetSoldierName = new(Allocator.TempJob);
-                foreach (
-                    (RefRO<Soldier> refSoldier, RefRO<Team> refTeam, Entity entity)
-                    in
-                    SystemAPI.Query<RefRO<Soldier>, RefRO<Team>>()
-                        .WithAll<Alive, Troop>()
-                        .WithNone<UnityTransform, UnityAnimator>()
-                        .WithEntityAccess())
-                {
-                    Troop troop = EntityManager.GetSharedComponent<Troop>(entity);
+            ecbRemoveJustSpawned = new EntityCommandBuffer(Allocator.TempJob);
+            new SetSpawnSoldierNameJob { EntityCommandBuffer = ecbRemoveJustSpawned.AsParallelWriter() }.ScheduleParallel(_spawnSoldierQuery, dependency).Complete();
+            ecbRemoveJustSpawned.Playback(state.EntityManager);
+            ecbRemoveJustSpawned.Dispose();
 
-                    ecbSetSoldierName.SetName(entity, $"<[{refTeam.ValueRO.Color}]Troop {troop.Id}>{refSoldier.ValueRO.Type}_{refSoldier.ValueRO.Id}");
-                }
-
-                ecbSetSoldierName.Playback(EntityManager);
-            }
-
-            if (isNewTroopSpawned)
-            {
-                using EntityCommandBuffer ecbSetTroopName = new(Allocator.TempJob);
-                foreach (
-                    (RefRO<Team> refTeam, Entity entity)
-                    in
-                    SystemAPI.Query<RefRO<Team>>()
-                        .WithAll<Troop, TroopEntity>()
-                        .WithEntityAccess())
-                {
-                    Troop troop = EntityManager.GetSharedComponent<Troop>(entity);
-
-                    ecbSetTroopName.SetName(entity, $"[{refTeam.ValueRO.Color}]{nameof(Troop)} {troop.Id}");
-                }
-
-                ecbSetTroopName.Playback(EntityManager);
-            }
+            ecbRemoveJustSpawned = new EntityCommandBuffer(Allocator.TempJob);
+            new SetSpawnTroopNameJob { EntityCommandBuffer = ecbRemoveJustSpawned.AsParallelWriter() }.ScheduleParallel(_spawnTroopQuery, dependency).Complete();
+            ecbRemoveJustSpawned.Playback(state.EntityManager);
+            ecbRemoveJustSpawned.Dispose();
 #endif
+            ecbRemoveJustSpawned = new EntityCommandBuffer(Allocator.TempJob);
+            new RemoveJustSpawnedSoldierJob { EntityCommandBuffer = ecbRemoveJustSpawned.AsParallelWriter() }.Schedule(_spawnSoldierQuery, dependency).Complete();
+            ecbRemoveJustSpawned.Playback(state.EntityManager);
+            ecbRemoveJustSpawned.Dispose();
+
+            ecbRemoveJustSpawned = new EntityCommandBuffer(Allocator.TempJob);
+            new RemoveJustSpawnedTroopJob { EntityCommandBuffer = ecbRemoveJustSpawned.AsParallelWriter() }.Schedule(_spawnTroopQuery, dependency).Complete();
+            ecbRemoveJustSpawned.Playback(state.EntityManager);
+            ecbRemoveJustSpawned.Dispose();
         }
     }
 }

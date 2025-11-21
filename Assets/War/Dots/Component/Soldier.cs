@@ -26,6 +26,7 @@ namespace War.Dots.Component
 
     public struct SoldierAttachedTroop : IComponentData
     {
+        public int TroopId;
         public Entity TroopEntity;
     }
 

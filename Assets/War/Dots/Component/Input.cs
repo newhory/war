@@ -10,27 +10,33 @@ namespace War.Dots.Component
         public float DragOffset;
     }
 
-    public struct OnPressStart : IComponentData, IEnableableComponent
+    public struct OnPointerPressStart : IComponentData, IEnableableComponent
     {
     }
 
-    public struct OnPressEnd : IComponentData, IEnableableComponent
+    public struct OnPointerPressEnd : IComponentData, IEnableableComponent
     {
     }
 
-    public struct OnDragStart : IComponentData
-    {
-        public float2 Point;
-        public Ray Ray;
-    }
-
-    public struct OnDragging : IComponentData
+    public struct OnPointerMove : IComponentData
     {
         public float2 Point;
         public Ray Ray;
     }
 
-    public struct OnDragEnd : IComponentData
+    public struct OnPointerDragStart : IComponentData
+    {
+        public float2 Point;
+        public Ray Ray;
+    }
+
+    public struct OnPointerDragging : IComponentData
+    {
+        public float2 Point;
+        public Ray Ray;
+    }
+
+    public struct OnPointerDragEnd : IComponentData
     {
         public float2 Point;
         public Ray Ray;
@@ -39,20 +45,5 @@ namespace War.Dots.Component
     public struct DragStartPosition : IComponentData, IEnableableComponent
     {
         public float3 Position;
-    }
-
-    public struct SelectedTroop : IComponentData
-    {
-        public Entity TroopEntity;
-    }
-
-    public struct TargetCandidateTroop : IComponentData
-    {
-        public Entity TroopEntity;
-    }
-
-    public struct SelectedTargetTroop : IComponentData
-    {
-        public Entity TroopEntity;
     }
 }

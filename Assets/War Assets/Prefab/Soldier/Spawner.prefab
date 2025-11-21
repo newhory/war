@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8389948354541183576}
   - component: {fileID: 4715901435493768740}
   - component: {fileID: 3320002237265509833}
+  - component: {fileID: 7211589764758741336}
   m_Layer: 0
   m_Name: Spawner
   m_TagString: Untagged
@@ -135,3 +136,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Game.Runtime.EffectSpawner
   hitEffectPrefab: {fileID: 100002, guid: 7799eafc87d1f6a47adfdfcfcb8eabd6, type: 3}
   hitEffectDuration: 0.5
+--- !u!114 &7211589764758741336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7403940785006871268}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bb54ea4f67dc17342bcd49954c53502d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Physics.Hybrid::Unity.Physics.Authoring.PhysicsDebugDisplayAuthoring
+  DrawColliders: 0
+  DrawColliderEdges: 0
+  DrawColliderAabbs: 0
+  DrawMassProperties: 0
+  DrawBroadphase: 0
+  DrawContacts: 0
+  DrawCollisionEvents: 0
+  DrawTriggerEvents: 0
+  DrawJoints: 0
+  ColliderDisplayMode: 0
+  ColliderEdgesDisplayMode: 0
+  ColliderAabbDisplayMode: 0

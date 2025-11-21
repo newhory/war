@@ -1,10 +1,8 @@
-﻿using System;
-using System.Threading;
-using Unity.Cinemachine;
+﻿using Unity.Cinemachine;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using Cysharp.Threading.Tasks;
+using UnityEngine.EventSystems;
 
 
 namespace War
@@ -12,93 +10,76 @@ namespace War
     using Dots.Component.ComponentSystem;
 
 
-    public class PointInput : MonoBehaviour
+    public class PointInput : MonoBehaviour, BattleInputAction.IPointerActions
     {
         [SerializeField] private CinemachineBrain cinemachineBrain;
 
 
-        private InputAction _pressAction;
-        private InputAction _pointerPositionAction;
+        private BattleInputAction _battleInputAction;
+        private BattleInputAction.PointerActions _action;
 
-        private CancellationTokenSource _ctsDragging;
+        private bool _isPressStarted;
+        private bool _isPressCanceled;
+        private bool _isMoving;
+        private bool _isDragging;
 
 
-        private void Awake() => cinemachineBrain ??= Camera.main?.GetComponent<CinemachineBrain>();
-
-        private void OnEnable()
+        private void Awake()
         {
-            _pressAction = new InputAction(type: InputActionType.Button, binding: "<Pointer>/press");
-            _pointerPositionAction = new InputAction(type: InputActionType.Value, binding: "<Pointer>/position");
+            cinemachineBrain ??= Camera.main?.GetComponent<CinemachineBrain>();
 
-            _pressAction.started += OnPressStarted;
-            _pressAction.canceled += OnPressCanceled;
-
-            _pressAction.Enable();
-            _pointerPositionAction.Enable();
+            _battleInputAction = new BattleInputAction();
+            _action = _battleInputAction.Pointer;
+            _action.AddCallbacks(this);
         }
 
-        private void OnDisable()
+        private void OnDestroy() => _battleInputAction.Dispose();
+
+        private void OnEnable() => _action.Enable();
+        private void OnDisable() => _action.Disable();
+
+        private void LateUpdate()
         {
-            if (_ctsDragging is not null)
+            if (_isPressStarted)
             {
-                _ctsDragging.Cancel();
-                _ctsDragging.Dispose();
-                _ctsDragging = null;
-            }
+                _isPressStarted = false;
 
-            _pressAction.Disable();
-            _pointerPositionAction.Disable();
-
-            _pressAction.started -= OnPressStarted;
-            _pressAction.canceled -= OnPressCanceled;
-
-            _pressAction.Dispose();
-            _pointerPositionAction.Dispose();
-        }
-
-        private void OnPressStarted(InputAction.CallbackContext ctx)
-        {
-            if (_ctsDragging is not null)
-            {
-                _ctsDragging.Cancel();
-                _ctsDragging.Dispose();
-                _ctsDragging = null;
-            }
-
-            Vector2 pressPoint = _pointerPositionAction.ReadValue<Vector2>();
-            Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(pressPoint);
-
-            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-
-            PlayerInputSystem.OnPressStarted(
-                entityManager,
-                pressPoint,
-                new Unity.Physics.Ray
+                if (!EventSystem.current || !EventSystem.current.IsPointerOverGameObject())
                 {
-                    Origin = ray.origin,
-                    Displacement = ray.direction * cinemachineBrain.OutputCamera.farClipPlane
-                });
-
-            _ctsDragging = new CancellationTokenSource();
-            OnDragging(_ctsDragging.Token).Forget();
-        }
-
-        private async UniTask OnDragging(CancellationToken cancellationToken)
-        {
-            try
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    await UniTask.Yield(PlayerLoopTiming.Update, cancellationToken);
-
-                    Vector2 dragPoint = _pointerPositionAction.ReadValue<Vector2>();
-                    Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(dragPoint);
+                    Vector2 pressPoint = _action.position.ReadValue<Vector2>();
+                    Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(pressPoint);
 
                     EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
-                    PlayerInputSystem.OnDragging(
+                    PlayerInputSystem.OnPointerPressStarted(
                         entityManager,
-                        dragPoint,
+                        pressPoint,
+                        new Unity.Physics.Ray
+                        {
+                            Origin = ray.origin,
+                            Displacement = ray.direction * cinemachineBrain.OutputCamera.farClipPlane
+                        });
+
+                    _isDragging = true;
+                }
+            }
+
+            if (_isPressCanceled)
+            {
+                _isPressCanceled = false;
+
+                if (!EventSystem.current || !EventSystem.current.IsPointerOverGameObject())
+                {
+                    _isDragging = false;
+
+                    Vector2 releasePoint = _action.position.ReadValue<Vector2>();
+                    Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(releasePoint);
+
+                    EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+
+                    PlayerInputSystem.OnPointerPressCanceled(
+                        entityManager,
+                        releasePoint,
                         new Unity.Physics.Ray
                         {
                             Origin = ray.origin,
@@ -106,38 +87,60 @@ namespace War
                         });
                 }
             }
-            catch (OperationCanceledException)
+
+            if (_isMoving)
             {
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
+                _isMoving = false;
+
+                if (!EventSystem.current || !EventSystem.current.IsPointerOverGameObject())
+                {
+                    Vector2 point = _action.position.ReadValue<Vector2>();
+                    Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(point);
+
+                    EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
+
+                    if (_isDragging)
+                    {
+                        PlayerInputSystem.OnPointerDragging(
+                            entityManager,
+                            point,
+                            new Unity.Physics.Ray
+                            {
+                                Origin = ray.origin,
+                                Displacement = ray.direction * cinemachineBrain.OutputCamera.farClipPlane
+                            });
+                    }
+                    else
+                    {
+                        PlayerInputSystem.OnPointerMove(
+                            entityManager,
+                            point,
+                            new Unity.Physics.Ray
+                            {
+                                Origin = ray.origin,
+                                Displacement = ray.direction * cinemachineBrain.OutputCamera.farClipPlane
+                            });
+                    }
+                }
             }
         }
 
-        private void OnPressCanceled(InputAction.CallbackContext ctx)
+        public void OnPress(InputAction.CallbackContext context)
         {
-            if (_ctsDragging is not null)
+            if (context.started)
             {
-                _ctsDragging.Cancel();
-                _ctsDragging.Dispose();
-                _ctsDragging = null;
+                _isPressStarted = true;
             }
 
-            Vector2 releasePoint = _pointerPositionAction.ReadValue<Vector2>();
-            Ray ray = cinemachineBrain.OutputCamera.ScreenPointToRay(releasePoint);
+            if (context.canceled)
+            {
+                _isPressCanceled = true;
+            }
+        }
 
-            EntityManager entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
-
-            PlayerInputSystem.OnPressCanceled(
-                entityManager,
-                releasePoint,
-                new Unity.Physics.Ray
-                {
-                    Origin = ray.origin,
-                    Displacement = ray.direction * cinemachineBrain.OutputCamera.farClipPlane
-                });
+        public void OnPosition(InputAction.CallbackContext context)
+        {
+            _isMoving = true;
         }
     }
 }
