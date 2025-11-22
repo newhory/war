@@ -1,6 +1,9 @@
-﻿using Unity.Entities;
+﻿using Unity.Burst;
+using Unity.Collections;
+using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
+using ZLinq;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -15,6 +18,17 @@ namespace War.Dots.Component.ComponentSystem
         private static Entity s_pointInput;
 
 
+        private static bool Cast(PhysicsWorldSingleton physicsWorldSingleton, RaycastInput raycastInput, out RaycastHit raycastHit)
+        {
+#if UNITY_EDITOR
+            UnityEngine.Debug.DrawLine(raycastInput.Start, raycastInput.End, UnityEngine.Color.chocolate);
+#endif
+            CollisionWorld collisionWorld = physicsWorldSingleton.PhysicsWorld.CollisionWorld;
+
+            return collisionWorld.CastRay(raycastInput, out raycastHit);
+        }
+
+        [BurstCompile]
         private static bool IsInsidePolygon(float2 point, DynamicBuffer<TroopHullPoint> troopHullPoints)
         {
             bool inside = false;
@@ -63,6 +77,8 @@ namespace War.Dots.Component.ComponentSystem
                 s_pointInput = SystemAPI.GetSingletonEntity<PointInput>();
             }
 
+            PhysicsWorldSingleton physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
+
             RaycastInput raycastInput = new()
             {
                 Filter = new CollisionFilter
@@ -94,7 +110,7 @@ namespace War.Dots.Component.ComponentSystem
                     raycastInput.Start = onPointerDragging.Ray.Origin;
                     raycastInput.End = onPointerDragging.Ray.Origin + onPointerDragging.Ray.Displacement;
 
-                    if (Cast(raycastInput, out RaycastHit onDraggingRaycastHit))
+                    if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDraggingRaycastHit))
                     {
                         (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDraggingRaycastHit.Position);
 
@@ -119,7 +135,7 @@ namespace War.Dots.Component.ComponentSystem
                         raycastInput.Start = onPointerDragStart.Ray.Origin;
                         raycastInput.End = onPointerDragStart.Ray.Origin + onPointerDragStart.Ray.Displacement;
 
-                        if (Cast(raycastInput, out RaycastHit onDragStartRaycastHit))
+                        if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDragStartRaycastHit))
                         {
                             dragStartPosition = onDragStartRaycastHit.Position;
 
@@ -159,7 +175,7 @@ namespace War.Dots.Component.ComponentSystem
                 raycastInput.Start = onPointerDragEnd.Ray.Origin;
                 raycastInput.End = onPointerDragEnd.Ray.Origin + onPointerDragEnd.Ray.Displacement;
 
-                if (Cast(raycastInput, out RaycastHit onDragEndRaycastHit))
+                if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDragEndRaycastHit))
                 {
                     (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDragEndRaycastHit.Position);
 
@@ -178,11 +194,12 @@ namespace War.Dots.Component.ComponentSystem
                             {
                                 if (state.EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
                                 {
+                                    state.EntityManager.SetComponentData(_currentSelectedEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
                                     state.EntityManager.SetComponentData(_currentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
 
                                     state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(_currentSelectedEntity, false);
                                     state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(_currentSelectedEntity, false);
-                                    state.EntityManager.SetComponentEnabled<StateMoveInFormation>(_currentSelectedEntity, true);
+                                    state.EntityManager.SetComponentEnabled<TroopStateMoveToDestination>(_currentSelectedEntity, true);
                                 }
 
                                 state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
@@ -238,55 +255,75 @@ namespace War.Dots.Component.ComponentSystem
         {
         }
 
-        private bool Cast(RaycastInput raycastInput, out RaycastHit raycastHit)
+        private struct TroopPicked
         {
-#if UNITY_EDITOR
-            UnityEngine.Debug.DrawLine(raycastInput.Start, raycastInput.End, UnityEngine.Color.chocolate);
-#endif
-            PhysicsWorldSingleton physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
-            CollisionWorld collisionWorld = physicsWorldSingleton.PhysicsWorld.CollisionWorld;
+            public Entity Entity;
+            public TeamColor TeamColor;
+            public float Distance;
+        }
 
-            return collisionWorld.CastRay(raycastInput, out raycastHit);
+        [BurstCompile]
+        private partial struct FillTroopPickedJob : IJobEntity
+        {
+            [ReadOnly] public float3 WorldPosition;
+
+            public NativeArray<TroopPicked> TroopPickedArray;
+
+
+            public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<TroopHullPoint> troopHullPoints, in TroopAABB troopAABB, in TroopEntity troopEntity, in Team team)
+            {
+                TroopPicked troopPicked = new()
+                {
+                    Entity = Entity.Null,
+                    TeamColor = TeamColor.None,
+                    Distance = float.MaxValue
+                };
+
+                // check AABB
+                if (WorldPosition.x < troopAABB.Min.x || WorldPosition.x > troopAABB.Max.x ||
+                    WorldPosition.z < troopAABB.Min.y || WorldPosition.z > troopAABB.Max.y)
+                {
+                    TroopPickedArray[entityIndex] = troopPicked;
+                    return;
+                }
+
+                float2 worldPosition2d = WorldPosition.xz;
+
+                if (!IsInsidePolygon(worldPosition2d, troopHullPoints))
+                {
+                    TroopPickedArray[entityIndex] = troopPicked;
+                    return;
+                }
+
+                troopPicked.Entity = troopEntity.Entity;
+                troopPicked.TeamColor = team.Color;
+                troopPicked.Distance = math.distance(worldPosition2d, troopAABB.Center);
+
+                TroopPickedArray[entityIndex] = troopPicked;
+            }
         }
 
         private (Entity, TeamColor) GetPickedTroop(ref SystemState state, float3 worldPosition)
         {
-            Entity newSelectedEntity = Entity.Null;
-            TeamColor teamColor = TeamColor.None;
-
-            float minDistance = float.MaxValue;
-
-            foreach (
-                (RefRO<TroopAABB> troopAABB, RefRO<TroopEntity> troopEntity, RefRO<Team> team, DynamicBuffer<TroopHullPoint> troopHullPoints)
-                in
-                SystemAPI.Query<RefRO<TroopAABB>, RefRO<TroopEntity>, RefRO<Team>, DynamicBuffer<TroopHullPoint>>()
-                    .WithAll<Troop>())
+            EntityQuery troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, TroopAABB, TroopEntity, Team, TroopHullPoint>().Build();
+            if (troopQuery.IsEmpty)
             {
-                // check AABB
-                if (worldPosition.x < troopAABB.ValueRO.Min.x || worldPosition.x > troopAABB.ValueRO.Max.x ||
-                    worldPosition.z < troopAABB.ValueRO.Min.y || worldPosition.z > troopAABB.ValueRO.Max.y)
-                {
-                    continue;
-                }
-
-                float2 worldPosition2d = worldPosition.xz;
-
-                if (!IsInsidePolygon(worldPosition2d, troopHullPoints))
-                {
-                    continue;
-                }
-
-                float distance = math.distance(worldPosition2d, troopAABB.ValueRO.Center);
-                if (distance < minDistance)
-                {
-                    minDistance = distance;
-
-                    newSelectedEntity = troopEntity.ValueRO.Entity;
-                    teamColor = team.ValueRO.Color;
-                }
+                return (Entity.Null, TeamColor.None);
             }
 
-            return (newSelectedEntity, teamColor);
+            NativeArray<TroopPicked> troopPickedArray = new(troopQuery.CalculateEntityCount(), Allocator.TempJob);
+
+            new FillTroopPickedJob
+                {
+                    WorldPosition = worldPosition,
+                    TroopPickedArray = troopPickedArray
+                }
+                .ScheduleParallel(troopQuery, state.Dependency)
+                .Complete();
+
+            TroopPicked result = troopPickedArray.AsValueEnumerable().MinBy(troopPicked => troopPicked.Distance);
+
+            return (result.Entity, result.TeamColor);
         }
     }
 }

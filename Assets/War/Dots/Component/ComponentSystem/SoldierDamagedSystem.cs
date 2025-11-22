@@ -91,7 +91,7 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Alive, Soldier, Damaged, LocalTransform>()
                     .WithAllRW<SoldierTargetForAttack>()
-                    .WithDisabled<StateAttackTarget>()
+                    .WithDisabled<SoldierStateAttackTarget>()
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);

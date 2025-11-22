@@ -9,7 +9,7 @@ using Unity.Mathematics;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.TroopAISystemGroup))]
+    [UpdateInGroup(typeof(Group.AISystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopAISystem : ISystem
     {
@@ -32,20 +32,20 @@ namespace War.Dots.Component.ComponentSystem
                     EntityCommandBuffer.SetComponentEnabled<TroopAISearchTarget>(entity.Index, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<TroopAICheckTargetValid>(entity.Index, entity, true);
 
-                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entity.Index, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<TroopStateMoveToTarget>(entity.Index, entity, true);
                 }
                 else
                 {
                     EntityCommandBuffer.SetComponentEnabled<TroopAISearchTarget>(entity.Index, entity, true);
                     EntityCommandBuffer.SetComponentEnabled<TroopAICheckTargetValid>(entity.Index, entity, false);
 
-                    EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entity.Index, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<TroopStateMoveToTarget>(entity.Index, entity, false);
                 }
             }
         }
 
         [BurstCompile]
-        private partial struct CollectTroopSoldierEntityJob : IJobEntity
+        private partial struct CollectSoldiersByTroopJob : IJobEntity
         {
             public NativeParallelMultiHashMap<Entity, TroopSoldier>.ParallelWriter SoldiersByTroop;
 
@@ -54,38 +54,14 @@ namespace War.Dots.Component.ComponentSystem
                 SoldiersByTroop.Add(soldierAttachedTroop.TroopEntity, new TroopSoldier { Entity = soldierEntity, Position = localTransform.Position });
         }
 
-        [BurstCompile]
-        private partial struct FillTroopSoldierEntityBufferJob : IJobEntity
-        {
-            [ReadOnly] public NativeParallelMultiHashMap<Entity, TroopSoldier>.ReadOnly SoldiersByTroop;
-
-
-            public void Execute(Entity troopEntity, DynamicBuffer<TroopSoldierEntity> troopSoldierEntities)
-            {
-                troopSoldierEntities.Clear();
-
-                if (!SoldiersByTroop.TryGetFirstValue(troopEntity, out TroopSoldier soldierEntity, out NativeParallelMultiHashMapIterator<Entity> iterator))
-                {
-                    return;
-                }
-
-                do
-                {
-                    troopSoldierEntities.Add(new TroopSoldierEntity { Soldier = soldierEntity });
-                } while (SoldiersByTroop.TryGetNextValue(out soldierEntity, ref iterator));
-            }
-        }
-
-        private readonly struct TroopSoldierDistanceComparer : IComparer<TroopSoldier>
+        private readonly struct TroopSoldierComparer : IComparer<TroopSoldier>
         {
             private readonly float3 _position;
-            private readonly NativeList<TroopSoldier> _troopSoldiers;
 
 
-            public TroopSoldierDistanceComparer(float3 position, NativeList<TroopSoldier> troopSoldiers)
+            public TroopSoldierComparer(float3 position)
             {
                 _position = position;
-                _troopSoldiers = troopSoldiers;
             }
 
 
@@ -105,19 +81,36 @@ namespace War.Dots.Component.ComponentSystem
         }
 
         [BurstCompile]
-        private partial struct ChangeTroopSoldiersAggressiveJob : IJobEntity
+        private partial struct SetSoldierStateByTroopJob : IJobEntity
         {
             [ReadOnly] public NativeParallelMultiHashMap<Entity, TroopSoldier>.ReadOnly SoldiersByTroop;
-            [ReadOnly] public ComponentLookup<SoldierTargetForAttack> SoldierTargetForAttackLookup;
+            [ReadOnly] public ComponentLookup<TroopTargetForAttack> TroopTargetForAttackLookup;
 
-            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
             public NativeParallelHashSet<int>.ParallelWriter AlreadyTargetedSoldierEntityIndices;
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(DynamicBuffer<TroopSoldierEntity> troopSoldierEntities, in TroopTargetForAttack targetForAttack)
+            public void Execute(Entity soldierEntity, ref SoldierTargetForAttack soldierTargetForAttack, ref SoldierAnimation soldierAnimation, in SoldierAttachedTroop soldierAttachedTroop, in LocalTransform localTransform)
             {
-                if (targetForAttack.TargetTroop == Entity.Null ||
-                    !SoldiersByTroop.TryGetFirstValue(targetForAttack.TargetTroop, out TroopSoldier targetCandidateSoldier, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                if (!TroopTargetForAttackLookup.TryGetRefRO(soldierAttachedTroop.TroopEntity, out RefRO<TroopTargetForAttack> troopTargetForAttack) ||
+                    troopTargetForAttack.ValueRO.TargetTroop == Entity.Null ||
+                    !SoldiersByTroop.TryGetFirstValue(troopTargetForAttack.ValueRO.TargetTroop, out TroopSoldier targetCandidateSoldier, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                {
+                    soldierAnimation.Next = SoldierAnimation.State.Default;
+                    
+                    soldierTargetForAttack.TargetSoldier = Entity.Null;
+
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(soldierEntity.Index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(soldierEntity.Index, soldierEntity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(soldierEntity.Index, soldierEntity, false);
+                    
+                    EntityCommandBuffer.SetComponentEnabled<Movable>(soldierEntity.Index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(soldierEntity.Index, soldierEntity, true);
+
+                    return;
+                }
+
+                if (soldierTargetForAttack.TargetSoldier != Entity.Null)
                 {
                     return;
                 }
@@ -128,58 +121,37 @@ namespace War.Dots.Component.ComponentSystem
                     targetCandidateSoldiers.Add(targetCandidateSoldier);
                 } while (SoldiersByTroop.TryGetNextValue(out targetCandidateSoldier, ref iterator));
 
-                for (int i = 0, count = troopSoldierEntities.Length; i < count; ++i)
+                targetCandidateSoldiers.Sort(new TroopSoldierComparer(localTransform.Position));
+
+                Entity targetEntity = Entity.Null;
+
+                for (int i = 0, targetCandidateSoldierCount = targetCandidateSoldiers.Length; i < targetCandidateSoldierCount; i++)
                 {
-                    TroopSoldier troopSoldier = troopSoldierEntities[i].Soldier;
+                    Entity candidateSoldierEntity = targetCandidateSoldiers[i].Entity;
 
-                    Entity soldierEntity = troopSoldier.Entity;
-                    SoldierTargetForAttack soldierTargetForAttack = SoldierTargetForAttackLookup[soldierEntity];
-
-                    if (soldierTargetForAttack.TargetSoldier != Entity.Null)
+                    if (AlreadyTargetedSoldierEntityIndices.Add(candidateSoldierEntity.Index))
                     {
-                        continue;
+                        targetEntity = candidateSoldierEntity;
+                        break;
                     }
-
-                    Entity targetEntity = Entity.Null;
-
-                    targetCandidateSoldiers.Sort(new TroopSoldierDistanceComparer(troopSoldier.Position, targetCandidateSoldiers));
-
-                    for (int j = 0, targetCandidateSoldierCount = targetCandidateSoldiers.Length; j < targetCandidateSoldierCount; j++)
-                    {
-                        Entity candidateSoldierEntity = targetCandidateSoldiers[j].Entity;
-
-                        if (AlreadyTargetedSoldierEntityIndices.Add(candidateSoldierEntity.Index))
-                        {
-                            targetEntity = candidateSoldierEntity;
-
-                            break;
-                        }
-                    }
-
-                    if (targetEntity == Entity.Null)
-                    {
-                        targetEntity = targetCandidateSoldiers[0].Entity;
-                    }
-
-                    soldierTargetForAttack.TargetSoldier = targetEntity;
-                    EntityCommandBuffer.SetComponent(soldierEntity.Index, soldierEntity, soldierTargetForAttack);
-
-                    EntityCommandBuffer.SetComponentEnabled<SoldierAISearchTarget>(soldierEntity.Index, soldierEntity, false);
-                    EntityCommandBuffer.SetComponentEnabled<SoldierAICheckTargetValid>(soldierEntity.Index, soldierEntity, true);
                 }
 
+                soldierTargetForAttack.TargetSoldier = targetEntity != Entity.Null ? targetEntity : targetCandidateSoldiers[0].Entity;
+
                 targetCandidateSoldiers.Dispose();
+
+                EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(soldierEntity.Index, soldierEntity, false);
+                EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(soldierEntity.Index, soldierEntity, true);
             }
         }
 
 
         private EntityQuery _checkTargetValidQuery;
         private EntityQuery _aliveSoldierQuery;
-        private EntityQuery _allTroopQuery;
-        private EntityQuery _aggressiveTroopQuery;
 
         private ComponentLookup<LocalTransform> _localTransformLookup;
-        private ComponentLookup<SoldierTargetForAttack> _soldierTargetForAttackLookup;
+        private ComponentLookup<TroopTargetForAttack> _troopTargetForAttackLookup;
+
 
         public void OnCreate(ref SystemState state)
         {
@@ -193,21 +165,11 @@ namespace War.Dots.Component.ComponentSystem
             _aliveSoldierQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Troop, Alive, NavMeshAgentData, LocalTransform, SoldierAttachedTroop>()
-                    .Build();
-
-            _allTroopQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, TroopSoldierEntity, TroopTargetForAttack>()
-                    .Build();
-
-            _aggressiveTroopQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, TroopSoldierEntity, TroopTargetForAttack>()
-                    .WithAll<TroopAICheckTargetValid>()
+                    .WithAllRW<SoldierTargetForAttack, SoldierAnimation>()
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
-            _soldierTargetForAttackLookup = state.GetComponentLookup<SoldierTargetForAttack>(true);
+            _troopTargetForAttackLookup = state.GetComponentLookup<TroopTargetForAttack>(true);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -230,30 +192,32 @@ namespace War.Dots.Component.ComponentSystem
             checkTargetValidEcb.Playback(state.EntityManager);
             checkTargetValidEcb.Dispose();
 
-            _soldierTargetForAttackLookup.Update(ref state);
+            _troopTargetForAttackLookup.Update(ref state);
 
-            NativeParallelMultiHashMap<Entity, TroopSoldier> soldiersByTroop = new(_aliveSoldierQuery.CalculateEntityCount(), Allocator.TempJob);
-            NativeParallelHashSet<int> alreadyTargetedSoldierEntityIndices = new(_aliveSoldierQuery.CalculateEntityCount(), Allocator.TempJob);
+            int aliveSoldierCount = _aliveSoldierQuery.CalculateEntityCount();
+
+            NativeParallelMultiHashMap<Entity, TroopSoldier> soldiersByTroop = new(aliveSoldierCount, Allocator.TempJob);
+            NativeParallelHashSet<int> alreadyTargetedSoldierEntityIndices = new(aliveSoldierCount, Allocator.TempJob);
 
             JobHandle dependency = state.Dependency;
-            dependency = new CollectTroopSoldierEntityJob { SoldiersByTroop = soldiersByTroop.AsParallelWriter() }.ScheduleParallel(_aliveSoldierQuery, dependency);
-            dependency = new FillTroopSoldierEntityBufferJob { SoldiersByTroop = soldiersByTroop.AsReadOnly() }.ScheduleParallel(_allTroopQuery, dependency);
 
-            EntityCommandBuffer ecbChangeTroopSoldiersAggressive = new(Allocator.TempJob);
-            new ChangeTroopSoldiersAggressiveJob
+            dependency = new CollectSoldiersByTroopJob { SoldiersByTroop = soldiersByTroop.AsParallelWriter() }.ScheduleParallel(_aliveSoldierQuery, dependency);
+
+            EntityCommandBuffer ecbSetSoldierStateByTroop = new(Allocator.TempJob);
+            new SetSoldierStateByTroopJob
                 {
                     SoldiersByTroop = soldiersByTroop.AsReadOnly(),
-                    SoldierTargetForAttackLookup = _soldierTargetForAttackLookup,
+                    TroopTargetForAttackLookup = _troopTargetForAttackLookup,
 
-                    EntityCommandBuffer = ecbChangeTroopSoldiersAggressive.AsParallelWriter(),
                     AlreadyTargetedSoldierEntityIndices = alreadyTargetedSoldierEntityIndices.AsParallelWriter(),
+                    EntityCommandBuffer = ecbSetSoldierStateByTroop.AsParallelWriter(),
                 }
-                .ScheduleParallel(_aggressiveTroopQuery, dependency)
+                .ScheduleParallel(_aliveSoldierQuery, dependency)
                 .Complete();
-            ecbChangeTroopSoldiersAggressive.Playback(state.EntityManager);
-            ecbChangeTroopSoldiersAggressive.Dispose();
+            ecbSetSoldierStateByTroop.Playback(state.EntityManager);
+            ecbSetSoldierStateByTroop.Dispose();
 
-            alreadyTargetedSoldierEntityIndices.Dispose();
+            alreadyTargetedSoldierEntityIndices.Dispose(dependency);
             soldiersByTroop.Dispose();
         }
     }

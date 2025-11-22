@@ -9,15 +9,4 @@ namespace War.Dots.Component.ComponentSystem.Group
     public partial class AISystemGroup : ComponentSystemGroup
     {
     }
-    
-    [UpdateInGroup(typeof(AISystemGroup))]
-    public partial class TroopAISystemGroup : ComponentSystemGroup
-    {
-    }
-    
-    [UpdateInGroup(typeof(AISystemGroup))]
-    [UpdateAfter(typeof(TroopAISystemGroup))]
-    public partial class SoldierAISystemGroup : ComponentSystemGroup
-    {
-    }
 }

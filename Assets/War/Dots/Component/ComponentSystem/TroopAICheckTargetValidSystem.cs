@@ -6,7 +6,7 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.TroopAISystemGroup))]
+    [UpdateInGroup(typeof(Group.AISystemGroup))]
     [UpdateAfter(typeof(TroopAISearchTargetSystem))]
     [UpdateBefore(typeof(TroopAISystem))]
     [RequireMatchingQueriesForUpdate]

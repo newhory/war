@@ -7,7 +7,7 @@ using Unity.Mathematics;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.TroopAISystemGroup))]
+    [UpdateInGroup(typeof(Group.AISystemGroup))]
     [UpdateBefore(typeof(TroopAISystem))]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopAISearchTargetSystem : ISystem

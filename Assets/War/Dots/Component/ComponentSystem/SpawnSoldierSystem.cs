@@ -76,19 +76,11 @@ namespace War.Dots.Component.ComponentSystem
 
             #endregion
 
-            #region AI
-
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAI { CheckTargetInterval = soldierData.checkTargetInterval, LastCheckTargetTime = -1f });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAISearchTarget());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAICheckTargetValid());
-
-            #endregion
-
             #region state
 
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveInFormation());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateMoveToTarget());
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new StateAttackTarget());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierStateMoveInFormation());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierStateMoveToTarget());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierStateAttackTarget());
 
             #endregion
 
@@ -148,10 +140,8 @@ namespace War.Dots.Component.ComponentSystem
 
             #endregion
 
-                EntityCommandBuffer.SetComponentEnabled<SoldierAISearchTarget>(index, soldierEntity, false);
-                EntityCommandBuffer.SetComponentEnabled<SoldierAICheckTargetValid>(index, soldierEntity, false);
-                EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(index, soldierEntity, false);
-                EntityCommandBuffer.SetComponentEnabled<StateAttackTarget>(index, soldierEntity, false);
+                EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, soldierEntity, false);
+                EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, soldierEntity, false);
 
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new JustSpawnedSoldier());
             }
@@ -237,14 +227,14 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAISearchTarget());
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAICheckTargetValid());
 
-                EntityCommandBuffer.AddComponent(index, troopEntity, new StateMoveInFormation());
-                EntityCommandBuffer.AddComponent(index, troopEntity, new StateMoveToTarget());
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopStateMoveToDestination());
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopStateMoveToTarget());
 
             #endregion
 
                 EntityCommandBuffer.SetComponentEnabled<TroopAISearchTarget>(index, troopEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<TroopAICheckTargetValid>(index, troopEntity, false);
-                EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(index, troopEntity, false);
+                EntityCommandBuffer.SetComponentEnabled<TroopStateMoveToTarget>(index, troopEntity, false);
 
                 EntityCommandBuffer.AddComponent(index, troopEntity, new JustSpawnedTroop());
             }

@@ -3,15 +3,23 @@
 
 namespace War.Dots.Component
 {
-    public struct StateMoveInFormation : IComponentData, IEnableableComponent
+    public struct TroopStateMoveToDestination : IComponentData, IEnableableComponent
     {
     }
 
-    public struct StateMoveToTarget : IComponentData, IEnableableComponent
+    public struct TroopStateMoveToTarget : IComponentData, IEnableableComponent
     {
     }
 
-    public struct StateAttackTarget : IComponentData, IEnableableComponent
+    public struct SoldierStateMoveInFormation : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct SoldierStateMoveToTarget : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct SoldierStateAttackTarget : IComponentData, IEnableableComponent
     {
     }
 }

@@ -13,30 +13,34 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdateDestinationJob : IJobEntity
         {
-            [ReadOnly] public LocalTransform FormationLocalTransform;
+            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(ref Destination destination, in FormationUnit formationUnit) =>
-                destination.Position = FormationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
+            public void Execute(ref Destination destination, in FormationUnit formationUnit)
+            {
+                if (!LocalTransformLookup.TryGetComponent(formationUnit.FormationEntity, out LocalTransform formationLocalTransform))
+                {
+                    return;
+                }
+
+                destination.Position = formationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
+            }
         }
 
 
-        private EntityQuery _formationQuery;
         private EntityQuery _formationUnitQuery;
+        private ComponentLookup<LocalTransform> _localTransformLookup;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _formationQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<FormationEntity, Formation, LocalTransform>()
-                    .Build();
-
             _formationUnitQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, StateMoveInFormation, Formation, FormationUnit>()
+                    .WithAll<Soldier, Alive, SoldierStateMoveInFormation, Formation, FormationUnit>()
                     .WithAllRW<Destination>()
                     .Build();
+
+            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -45,38 +49,9 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            state.EntityManager.GetAllUniqueSharedComponents(out NativeList<Formation> formations, Allocator.TempJob);
-            if (formations.Length == 0)
-            {
-                formations.Dispose();
-                return;
-            }
+            _localTransformLookup.Update(ref state);
 
-            foreach (Formation formation in formations)
-            {
-                _formationQuery.SetSharedComponentFilter(formation);
-                if (_formationQuery.CalculateEntityCount() != 1)
-                {
-                    continue;
-                }
-
-                _formationUnitQuery.SetSharedComponentFilter(formation);
-
-                int formationUnitEntityCount = _formationUnitQuery.CalculateEntityCount();
-                if (formationUnitEntityCount < 1)
-                {
-                    continue;
-                }
-
-                new UpdateDestinationJob
-                    {
-                        FormationLocalTransform = _formationQuery.GetSingleton<LocalTransform>(),
-                    }
-                    .ScheduleParallel(_formationUnitQuery, state.Dependency)
-                    .Complete();
-            }
-
-            formations.Dispose();
+            state.Dependency = new UpdateDestinationJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_formationUnitQuery, state.Dependency);
         }
     }
 }
