@@ -1,81 +1,79 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
+using Unity.Mathematics;
 using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateAfter(typeof(TransformSystemGroup))]
-    [UpdateBefore(typeof(Group.ViewSystemGroup))]
+    [UpdateInGroup(typeof(Group.PostSpawnSystemGroup), OrderLast = true)]
     public partial struct SoldierInitialPositionSystem : ISystem
     {
         [BurstCompile]
+        private partial struct CollectPositionJob : IJobEntity
+        {
+            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
+
+            public NativeArray<float3> Positions;
+
+
+            public void Execute([EntityIndexInQuery] int index, in FormationUnit formationUnit)
+            {
+                if (!LocalTransformLookup.TryGetComponent(formationUnit.FormationEntity, out LocalTransform formationLocalTransform))
+                {
+                    return;
+                }
+
+                Positions[index] = formationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
+            }
+        }
+
+        [BurstCompile]
         private partial struct UpdatePositionJob : IJobEntity
         {
-            [ReadOnly] public LocalTransform FormationLocalTransform;
+            [ReadOnly] public NativeArray<float3>.ReadOnly Positions;
 
 
-            public void Execute(ref LocalTransform localTransform, in FormationUnit formationUnit) => localTransform.Position = FormationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
+            public void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform) => localTransform.Position = Positions[index];
         }
 
 
-        private EntityQuery _formationQuery;
         private EntityQuery _formationUnitQuery;
+        private ComponentLookup<LocalTransform> _localTransformLookup;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _formationQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<FormationEntity, Formation, LocalTransform>()
-                    .Build();
-
             _formationUnitQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, Formation, FormationUnit>()
                     .WithAllRW<LocalTransform>()
                     .WithNone<UnityAnimator, UnityNavMeshAgent>()
                     .Build();
+
+            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
         }
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            state.Dependency.Complete();
-            
-            state.EntityManager.GetAllUniqueSharedComponents(out NativeList<Formation> formations, Allocator.TempJob);
-            if (formations.Length > 0)
-            {
-                foreach (Formation formation in formations)
-                {
-                    _formationQuery.SetSharedComponentFilter(formation);
-                    if (_formationQuery.CalculateEntityCount() != 1)
-                    {
-                        continue;
-                    }
+            _localTransformLookup.Update(ref state);
 
-                    _formationUnitQuery.SetSharedComponentFilter(formation);
+            JobHandle dependency = state.Dependency;
 
-                    int formationUnitEntityCount = _formationUnitQuery.CalculateEntityCount();
-                    if (formationUnitEntityCount < 1)
-                    {
-                        continue;
-                    }
+            NativeArray<float3> positions = new(_formationUnitQuery.CalculateEntityCount(), Allocator.TempJob);
 
-                    new UpdatePositionJob
-                        {
-                            FormationLocalTransform = _formationQuery.GetSingleton<LocalTransform>(),
-                        }
-                        .ScheduleParallel(_formationUnitQuery, state.Dependency)
-                        .Complete();
-                }
-            }
-            
-            formations.Dispose();
+            dependency = new CollectPositionJob { LocalTransformLookup = _localTransformLookup, Positions = positions }.ScheduleParallel(_formationUnitQuery, dependency);
+            dependency = new UpdatePositionJob { Positions = positions.AsReadOnly() }.ScheduleParallel(_formationUnitQuery, dependency);
+
+            dependency = positions.Dispose(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

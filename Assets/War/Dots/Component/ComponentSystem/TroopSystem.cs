@@ -9,6 +9,7 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    [UpdateInGroup(typeof(Group.InputUpdateGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopSystem : ISystem
     {

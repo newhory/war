@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -77,20 +78,22 @@ namespace War.Dots.Component.ComponentSystem
                 return;
             }
 
-            using EntityCommandBuffer ecb = new(Allocator.TempJob);
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
-            new SpawnEffectJob
-                {
-                    EntityCommandBuffer = ecb.AsParallelWriter(),
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            JobHandle dependency =
+                new SpawnEffectJob
+                    {
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
 
-                    ProtoType = protoType,
-                    CurrentTime = currentTime,
-                    Duration = duration,
-                }
-                .ScheduleParallel(effectDataQuery, state.Dependency)
-                .Complete();
+                        ProtoType = protoType,
+                        CurrentTime = currentTime,
+                        Duration = duration,
+                    }
+                    .ScheduleParallel(effectDataQuery, state.Dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-            ecb.Playback(state.EntityManager);
+            state.Dependency = dependency;
         }
     }
 }

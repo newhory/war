@@ -23,6 +23,7 @@ namespace War.Dots.Component.ComponentSystem
         public float3 Position;
     }
 
+    [UpdateInGroup(typeof(Group.InputUpdateGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SpawnInputSystem : ISystem, ISystemStartStop
     {

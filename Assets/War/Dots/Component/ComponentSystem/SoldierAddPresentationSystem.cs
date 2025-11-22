@@ -10,7 +10,8 @@ using ZLinq;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.ViewSystemGroup))]
+    [UpdateInGroup(typeof(Group.AddPresentationSystemGroup))]
+    [RequireMatchingQueriesForUpdate]
     public partial class SoldierAddPresentationSystem : SystemBase
     {
         private Dictionary<SoldierType, ObjectPool<GameObject>> _blueTeamSoldierViewPool;

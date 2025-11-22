@@ -7,7 +7,7 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.FirstUpdateGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(Group.InputUpdateGroup), OrderFirst = true)]
     public partial class PlayerInputSystem : SystemBase
     {
         private static bool s_isStartBattle;

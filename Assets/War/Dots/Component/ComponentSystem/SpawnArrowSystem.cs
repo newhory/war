@@ -4,10 +4,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
-#if HYBRID_ARROW
-using System.Collections.Generic;
-using UnityEngine.Pool;
-#endif
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -15,9 +11,6 @@ namespace War.Dots.Component.ComponentSystem
     [UpdateInGroup(typeof(Group.SpawnSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SpawnArrowSystem : ISystem
-#if HYBRID_ARROW
-        , ISystemStartStop
-#endif
     {
         private struct JustCreated : IComponentData
         {
@@ -103,31 +96,8 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _spawnArrowQuery;
         private EntityQuery _justCreatedArrowQuery;
-
-#if HYBRID_ARROW
-        private static ObjectPool<UnityEngine.GameObject> s_arrowPool;
-        private static List<(Entity entity, PooledGameObject soldierViewComponent)> s_pooledGameObjectBuffer;
-
-        public void OnStartRunning(ref SystemState state)
-        {
-            s_arrowPool ??=
-                new ObjectPool<UnityEngine.GameObject>(
-                    createFunc: () => UnityEngine.Object.Instantiate(Setting.Instance.arrowRenderMeshPrefab),
-                    actionOnGet: gameObject => gameObject.SetActive(true),
-                    actionOnRelease: gameObject => gameObject?.SetActive(false),
-                    actionOnDestroy: UnityEngine.Object.Destroy,
-                    collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
-                    defaultCapacity: 10);
-
-            s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
-        }
-
-        public void OnStopRunning(ref SystemState state)
-        {
-            s_arrowPool?.Dispose();
-            s_arrowPool = null;
-        }
-#endif
+        
+        
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<ArrowSpawner>();
@@ -186,35 +156,6 @@ namespace War.Dots.Component.ComponentSystem
                 .ScheduleParallel(_justCreatedArrowQuery, state.Dependency)
                 .Complete();
 
-#if HYBRID_ARROW
-            s_pooledGameObjectBuffer.Clear();
-
-            ecb = new EntityCommandBuffer(Allocator.Temp);
-            foreach (
-                (RefRO<JustCreated> _, Entity entity)
-                in
-                SystemAPI.Query<RefRO<JustCreated>>()
-                    .WithAll<Arrow>()
-                    .WithNone<UnityTransform>()
-                    .WithEntityAccess())
-            {
-                PooledObject<UnityEngine.GameObject> pooled = s_arrowPool.Get(out UnityEngine.GameObject gameObject);
-
-                gameObject.SetActive(true);
-
-                s_pooledGameObjectBuffer.Add((entity, new PooledGameObject { PooledObject = pooled }));
-
-                ecb.AddComponent(entity, new UnityTransform { Transform = gameObject.transform });
-            }
-
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
-
-            foreach (var (entity, pooledGameObject) in s_pooledGameObjectBuffer)
-            {
-                state.EntityManager.AddComponentData(entity, pooledGameObject);
-            }
-#endif
             ecb = new EntityCommandBuffer(Allocator.Temp);
             foreach (
                 (RefRO<JustCreated> _, Entity entity)

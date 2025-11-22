@@ -12,6 +12,7 @@ namespace War.Dots.Component.ComponentSystem
     {
     }
 
+    [UpdateInGroup(typeof(Group.InputUpdateGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct BattleInputSystem : ISystem, ISystemStartStop
     {

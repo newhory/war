@@ -6,8 +6,7 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateAfter(typeof(Group.UpdatePositionSystemGroup))]
-    [UpdateBefore(typeof(TransformSystemGroup))]
+    [UpdateInGroup(typeof(Group.UpdatePositionSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct ForwardSystem : ISystem
     {
