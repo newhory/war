@@ -21,7 +21,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public BufferLookup<Damaged> DamagedLookup;
 
 
-            public void Execute(Entity entity, ref TargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
+            public void Execute(Entity entity, ref SoldierTargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
             {
                 float range = searchTargetRange.Value;
 
@@ -35,7 +35,7 @@ namespace War.Dots.Component.ComponentSystem
                 int3 baseCell = SoldierSpatialHashMapBuildSystem.CellFromPos(pos);
 
                 float minDistance = float.MaxValue;
-                Entity target = targetForAttack.Target;
+                Entity target = targetForAttack.TargetSoldier;
 
                 for (int dx = -cellCount; dx <= cellCount; dx++)
                 {
@@ -67,7 +67,7 @@ namespace War.Dots.Component.ComponentSystem
                     }
                 }
 
-                targetForAttack.Target = target;
+                targetForAttack.TargetSoldier = target;
             }
         }
 
@@ -84,8 +84,8 @@ namespace War.Dots.Component.ComponentSystem
 
             _searchTargetQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, Team, AISearchTarget, SearchTargetRange, NavMeshAgentData, LocalTransform>()
-                    .WithAllRW<TargetForAttack>()
+                    .WithAll<Soldier, Alive, Team, SoldierAISearchTarget, SearchTargetRange, NavMeshAgentData, LocalTransform>()
+                    .WithAllRW<SoldierTargetForAttack>()
                     .Build();
 
             _soldierPositionLookup = state.GetComponentLookup<LocalTransform>(true);

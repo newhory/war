@@ -34,6 +34,11 @@ namespace War.Dots.Component
     {
         public SoldierWeaponType Type;
     }
+    
+    public struct SoldierTargetForAttack : IComponentData
+    {
+        public Entity TargetSoldier;
+    }
 
     public struct SoldierAnimation : IComponentData
     {

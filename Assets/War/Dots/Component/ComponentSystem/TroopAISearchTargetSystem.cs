@@ -20,7 +20,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<Team> TeamLookup;
 
 
-            public void Execute(Entity entity, ref TargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
+            public void Execute(Entity entity, ref TroopTargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
             {
                 float range = searchTargetRange.Value;
                 float3 pos = localTransform.Position;
@@ -46,7 +46,7 @@ namespace War.Dots.Component.ComponentSystem
                     }
                 }
 
-                targetForAttack.Target = target;
+                targetForAttack.TargetTroop = target;
             }
         }
 
@@ -61,8 +61,8 @@ namespace War.Dots.Component.ComponentSystem
         {
             _searchTargetQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, AISearchTarget, LocalTransform, Team, SearchTargetRange>()
-                    .WithAllRW<TargetForAttack>()
+                    .WithAll<Troop, TroopEntity, TroopAISearchTarget, LocalTransform, Team, SearchTargetRange>()
+                    .WithAllRW<TroopTargetForAttack>()
                     .Build();
 
             _targetQuery =

@@ -15,11 +15,27 @@ namespace War.Dots.Component
         public Entity Entity;
     }
     
+    public struct TroopTargetForAttack : IComponentData
+    {
+        public Entity TargetTroop;
+    }
+    
     /// <summary>
     /// Tag for a selected troop (attach to Troop entity) 
     /// </summary>
     public struct TroopSelected : IComponentData, IEnableableComponent
     {
+    }
+    
+    public struct TroopSoldier
+    {
+        public Entity Entity;
+        public float3 Position;
+    }
+    
+    public struct TroopSoldierEntity : IBufferElementData
+    {
+        public TroopSoldier Soldier;
     }
     
     public struct TroopSoldierPosition : IBufferElementData

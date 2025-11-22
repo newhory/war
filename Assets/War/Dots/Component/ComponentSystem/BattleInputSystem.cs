@@ -180,8 +180,8 @@ namespace War.Dots.Component.ComponentSystem
                                 {
                                     state.EntityManager.SetComponentData(_currentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
 
-                                    state.EntityManager.SetComponentEnabled<AICheckTargetValid>(_currentSelectedEntity, false);
-                                    state.EntityManager.SetComponentEnabled<AISearchTarget>(_currentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(_currentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(_currentSelectedEntity, false);
                                     state.EntityManager.SetComponentEnabled<StateMoveInFormation>(_currentSelectedEntity, true);
                                 }
 
@@ -203,10 +203,10 @@ namespace War.Dots.Component.ComponentSystem
                                 {
                                     if (state.EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
                                     {
-                                        state.EntityManager.SetComponentData(_currentSelectedEntity, new TargetForAttack { Target = currentPickedTroop });
+                                        state.EntityManager.SetComponentData(_currentSelectedEntity, new TroopTargetForAttack { TargetTroop = currentPickedTroop });
 
-                                        state.EntityManager.SetComponentEnabled<AICheckTargetValid>(_currentSelectedEntity, true);
-                                        state.EntityManager.SetComponentEnabled<AISearchTarget>(_currentSelectedEntity, false);
+                                        state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(_currentSelectedEntity, true);
+                                        state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(_currentSelectedEntity, false);
                                     }
 
                                     state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);

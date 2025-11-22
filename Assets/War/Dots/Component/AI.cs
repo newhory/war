@@ -3,17 +3,25 @@
 
 namespace War.Dots.Component
 {
-    public struct AI : IComponentData
+    public struct SoldierAI : IComponentData
     {
         public float CheckTargetInterval;
         public double LastCheckTargetTime;
     }
     
-    public struct AISearchTarget : IComponentData, IEnableableComponent
+    public struct SoldierAISearchTarget : IComponentData, IEnableableComponent
     {
     }
 
-    public struct AICheckTargetValid : IComponentData, IEnableableComponent
+    public struct SoldierAICheckTargetValid : IComponentData, IEnableableComponent
+    {
+    }
+    
+    public struct TroopAISearchTarget : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct TroopAICheckTargetValid : IComponentData, IEnableableComponent
     {
     }
 }

@@ -62,7 +62,7 @@ namespace War.Dots.Component.ComponentSystem
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Movable());
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Rotatable());
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Forward { Value = math.normalize(vel) });
-                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new TargetForAttack { Target = arrowSpawnData.Target });
+                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new SoldierTargetForAttack { TargetSoldier = arrowSpawnData.Target });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new AttackPower { Value = arrowSpawnData.Damage });
 
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new JustCreated());

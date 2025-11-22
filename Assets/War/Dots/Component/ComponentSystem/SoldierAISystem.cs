@@ -19,14 +19,14 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref AI ai, in TargetForAttack targetForAttack)
+            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref SoldierAI ai, in SoldierTargetForAttack targetForAttack)
             {
-                if (targetForAttack.Target != Entity.Null)
+                if (targetForAttack.TargetSoldier != Entity.Null)
                 {
                     ai.LastCheckTargetTime = CurrentTime;
 
-                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierAISearchTarget>(entityIndex, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierAICheckTargetValid>(entityIndex, entity, true);
                 }
             }
         }
@@ -40,13 +40,13 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref Destination moveToDestination, in AI ai, in AICheckTargetValid checkTargetValid, in LocalTransform localTransform, in TargetForAttack targetForAttack, in AttackRange attackRange)
+            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref Destination moveToDestination, in SoldierAI ai, in SoldierAICheckTargetValid checkTargetValid, in LocalTransform localTransform, in SoldierTargetForAttack targetForAttack, in AttackRange attackRange)
             {
-                if (targetForAttack.Target != Entity.Null)
+                if (targetForAttack.TargetSoldier != Entity.Null)
                 {
                     EntityCommandBuffer.SetComponentEnabled<StateMoveInFormation>(entityIndex, entity, false);
 
-                    float3 otherPos = SoldierPositionLookup[targetForAttack.Target].Position;
+                    float3 otherPos = SoldierPositionLookup[targetForAttack.TargetSoldier].Position;
                     float dist = math.distance(localTransform.Position, otherPos);
                     if (dist <= attackRange.Value)
                     {
@@ -62,8 +62,8 @@ namespace War.Dots.Component.ComponentSystem
                         if (ai.LastCheckTargetTime > 0 &&
                             CurrentTime > ai.LastCheckTargetTime + ai.CheckTargetInterval)
                         {
-                            EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, true);
-                            EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, false);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierAISearchTarget>(entityIndex, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierAICheckTargetValid>(entityIndex, entity, false);
                         }
                         else
                         {
@@ -79,8 +79,8 @@ namespace War.Dots.Component.ComponentSystem
                 }
                 else
                 {
-                    EntityCommandBuffer.SetComponentEnabled<AISearchTarget>(entityIndex, entity, true);
-                    EntityCommandBuffer.SetComponentEnabled<AICheckTargetValid>(entityIndex, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierAISearchTarget>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierAICheckTargetValid>(entityIndex, entity, false);
 
                     EntityCommandBuffer.SetComponentEnabled<StateMoveInFormation>(entityIndex, entity, true);
                     EntityCommandBuffer.SetComponentEnabled<StateMoveToTarget>(entityIndex, entity, false);
@@ -138,16 +138,16 @@ namespace War.Dots.Component.ComponentSystem
         {
             _searchTargetQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, AISearchTarget, TargetForAttack>()
-                    .WithAllRW<AI>()
-                    .WithDisabled<AICheckTargetValid>()
+                    .WithAll<Soldier, Alive, SoldierAISearchTarget, SoldierTargetForAttack>()
+                    .WithAllRW<SoldierAI>()
+                    .WithDisabled<SoldierAICheckTargetValid>()
                     .Build();
 
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, AICheckTargetValid, NavMeshAgentData, TargetForAttack, AttackRange, LocalTransform>()
-                    .WithDisabled<AISearchTarget, StateAttackTarget>()
-                    .WithAllRW<AI, Destination>()
+                    .WithAll<Soldier, Alive, SoldierAICheckTargetValid, NavMeshAgentData, SoldierTargetForAttack, AttackRange, LocalTransform>()
+                    .WithDisabled<SoldierAISearchTarget, StateAttackTarget>()
+                    .WithAllRW<SoldierAI, Destination>()
                     .Build();
 
             _moveInFormationSoldierQuery =

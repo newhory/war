@@ -18,16 +18,16 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(ref TargetForAttack targetForAttack)
+            public void Execute(ref TroopTargetForAttack targetForAttack)
             {
-                if (targetForAttack.Target == Entity.Null)
+                if (targetForAttack.TargetTroop == Entity.Null)
                 {
                     return;
                 }
 
-                if (!LocalTransformLookup.EntityExists(targetForAttack.Target))
+                if (!LocalTransformLookup.EntityExists(targetForAttack.TargetTroop))
                 {
-                    targetForAttack.Target = Entity.Null;
+                    targetForAttack.TargetTroop = Entity.Null;
                 }
             }
         }
@@ -41,8 +41,8 @@ namespace War.Dots.Component.ComponentSystem
         {
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, AICheckTargetValid>()
-                    .WithAllRW<TargetForAttack>()
+                    .WithAll<Troop, TroopEntity, TroopAICheckTargetValid>()
+                    .WithAllRW<TroopTargetForAttack>()
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);

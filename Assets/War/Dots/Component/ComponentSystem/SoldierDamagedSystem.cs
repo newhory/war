@@ -43,10 +43,10 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref TargetForAttack targetForAttack, in LocalTransform localTransform)
+            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref SoldierTargetForAttack targetForAttack, in LocalTransform localTransform)
             {
-                float distanceToTarget = GetDistance(localTransform, targetForAttack.Target);
-                Entity target = targetForAttack.Target;
+                float distanceToTarget = GetDistance(localTransform, targetForAttack.TargetSoldier);
+                Entity target = targetForAttack.TargetSoldier;
 
                 foreach (Damaged damaged in damagedBuffer)
                 {
@@ -63,7 +63,7 @@ namespace War.Dots.Component.ComponentSystem
                     }
                 }
 
-                targetForAttack.Target = target;
+                targetForAttack.TargetSoldier = target;
             }
 
             private float GetDistance(in LocalTransform localTransform, Entity target) =>
@@ -90,7 +90,7 @@ namespace War.Dots.Component.ComponentSystem
             _soldierHitDamageNotAttackingQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Alive, Soldier, Damaged, LocalTransform>()
-                    .WithAllRW<TargetForAttack>()
+                    .WithAllRW<SoldierTargetForAttack>()
                     .WithDisabled<StateAttackTarget>()
                     .Build();
 

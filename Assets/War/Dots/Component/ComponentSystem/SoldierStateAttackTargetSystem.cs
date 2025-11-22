@@ -23,12 +23,12 @@ namespace War.Dots.Component.ComponentSystem
             public void Execute(
                 Entity entity, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer,
                 ref Attack attack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
-                in Team team, in LocalTransform localTransform, in TargetForAttack targetForAttack,
+                in Team team, in LocalTransform localTransform, in SoldierTargetForAttack targetForAttack,
                 in SoldierWeapon soldierWeapon, in AttackData attackData, in AttackPower attackPower, in AttackRange attackRange)
             {
                 float3 pos = localTransform.Position;
 
-                if (targetForAttack.Target == Entity.Null)
+                if (targetForAttack.TargetSoldier == Entity.Null)
                 {
                     soldierAnimation.Next = SoldierAnimation.State.Default;
 
@@ -38,7 +38,7 @@ namespace War.Dots.Component.ComponentSystem
                     return;
                 }
 
-                if (!LocalTransformLookup.TryGetRefRO(targetForAttack.Target, out RefRO<LocalTransform> targetLocalTransform))
+                if (!LocalTransformLookup.TryGetRefRO(targetForAttack.TargetSoldier, out RefRO<LocalTransform> targetLocalTransform))
                 {
                     return;
                 }
@@ -65,8 +65,8 @@ namespace War.Dots.Component.ComponentSystem
                             switch (soldierWeapon.Type)
                             {
                                 case SoldierWeaponType.Melee:
-                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.Target, new Damaged { Hitter = entity, HitDamage = attackPower.Value });
-                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.Target, new SpawnHitEffect { Position = otherPos });
+                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.TargetSoldier, new Damaged { Hitter = entity, HitDamage = attackPower.Value });
+                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.TargetSoldier, new SpawnHitEffect { Position = otherPos });
 
                                     break;
 
@@ -76,7 +76,7 @@ namespace War.Dots.Component.ComponentSystem
                                         {
                                             Shooter = entity,
                                             ShooterTeamColor = team.Color,
-                                            Target = targetForAttack.Target,
+                                            Target = targetForAttack.TargetSoldier,
                                             Damage = attackPower.Value,
                                             MinSpeed = 8,
                                             MaxPoiDeviation = 0.25f,
@@ -131,7 +131,7 @@ namespace War.Dots.Component.ComponentSystem
             _stateAttackTargetQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Alive, Soldier, StateAttackTarget, LocalTransform>()
-                    .WithAll<Team, NavMeshAgentData, TargetForAttack, SoldierWeapon, AttackData, AttackPower, AttackRange>()
+                    .WithAll<Team, NavMeshAgentData, SoldierTargetForAttack, SoldierWeapon, AttackData, AttackPower, AttackRange>()
                     .WithAllRW<Attack, SoldierAnimation>()
                     .WithAllRW<Forward, Destination>()
                     .WithAllRW<SpawnArrow>()

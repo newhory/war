@@ -111,12 +111,12 @@ namespace War.Dots.Component.ComponentSystem
                 foreach (
                     (RefRW<Destination> refTargetDestination, RefRW<Forward> refForward, RefRO<LocalTransform> refLocalTransform, Entity entity)
                     in
-                    SystemAPI.Query<RefRW<Destination>, RefRW<Forward>, RefRO<LocalTransform>>().WithAll<TroopEntity>().WithDisabled<AISearchTarget>().WithEntityAccess())
+                    SystemAPI.Query<RefRW<Destination>, RefRW<Forward>, RefRO<LocalTransform>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
                 {
                     refTargetDestination.ValueRW.Position = destination;
                     refForward.ValueRW.Value.xz = math.normalize(destination.xz - refLocalTransform.ValueRO.Position.xz);
 
-                    ecb.SetComponentEnabled<AISearchTarget>(entity, true);
+                    ecb.SetComponentEnabled<TroopAISearchTarget>(entity, true);
                 }
 
                 ecb.Playback(EntityManager);

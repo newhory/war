@@ -17,16 +17,16 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public BufferLookup<Damaged> DamagedLookup;
 
 
-            public void Execute(ref TargetForAttack targetForAttack)
+            public void Execute(ref SoldierTargetForAttack targetForAttack)
             {
-                if (targetForAttack.Target == Entity.Null)
+                if (targetForAttack.TargetSoldier == Entity.Null)
                 {
                     return;
                 }
 
-                if (!DamagedLookup.HasBuffer(targetForAttack.Target))
+                if (!DamagedLookup.HasBuffer(targetForAttack.TargetSoldier))
                 {
-                    targetForAttack.Target = Entity.Null;
+                    targetForAttack.TargetSoldier = Entity.Null;
                 }
             }
         }
@@ -40,8 +40,8 @@ namespace War.Dots.Component.ComponentSystem
         {
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, AICheckTargetValid>()
-                    .WithAllRW<TargetForAttack>()
+                    .WithAll<Soldier, Alive, SoldierAICheckTargetValid>()
+                    .WithAllRW<SoldierTargetForAttack>()
                     .Build();
 
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
