@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Physics.Systems;
@@ -58,7 +59,8 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute(Entity entity, in Arrow arrow, in LocalTransform localTransform, in AttackPower attackPower)
             {
-                if (!CollisionEvents.TryGetFirstValue(entity, out Entity targetEntity, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                if (CollisionEvents.IsEmpty ||
+                    !CollisionEvents.TryGetFirstValue(entity, out Entity targetEntity, out NativeParallelMultiHashMapIterator<Entity> iterator))
                 {
                     return;
                 }
@@ -87,8 +89,6 @@ namespace War.Dots.Component.ComponentSystem
         private BufferLookup<Damaged> _damagedLookup;
         private BufferLookup<SpawnHitEffect> _spawnHitEffectLookup;
 
-        private NativeParallelMultiHashMap<Entity, Entity> _arrowCollisionEvents;
-
 
         public void OnCreate(ref SystemState state)
         {
@@ -104,8 +104,6 @@ namespace War.Dots.Component.ComponentSystem
             _arrowLookup = state.GetComponentLookup<Arrow>(true);
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
             _spawnHitEffectLookup = state.GetBufferLookup<SpawnHitEffect>(true);
-
-            _arrowCollisionEvents = new NativeParallelMultiHashMap<Entity, Entity>(1024, Allocator.Domain);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -118,39 +116,43 @@ namespace War.Dots.Component.ComponentSystem
             _damagedLookup.Update(ref state);
             _spawnHitEffectLookup.Update(ref state);
 
-            state.Dependency = new SetForwardJob().ScheduleParallel(_arrowQuery, state.Dependency);
+            JobHandle dependency = state.Dependency;
 
+            dependency = new SetForwardJob().ScheduleParallel(_arrowQuery, dependency);
+
+            NativeParallelMultiHashMap<Entity, Entity> arrowCollisionEvents = new(1024, Allocator.TempJob);
             SimulationSingleton simulationSingleton = SystemAPI.GetSingleton<SimulationSingleton>();
 
-            new CollisionEventJob
-                {
-                    CollisionEvents = _arrowCollisionEvents.AsParallelWriter(),
+            dependency =
+                new CollisionEventJob
+                    {
+                        CollisionEvents = arrowCollisionEvents.AsParallelWriter(),
 
-                    ArrowLookup = _arrowLookup,
-                }
-                .Schedule(simulationSingleton, state.Dependency)
-                .Complete();
+                        ArrowLookup = _arrowLookup,
+                    }
+                    .Schedule(simulationSingleton, dependency);
 
-            if (!_arrowCollisionEvents.IsEmpty)
-            {
-                using EntityCommandBuffer ecb = new(Allocator.TempJob);
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency =
                 new ProcessCollisionEventJob
                     {
                         EntityCommandBuffer = ecb.AsParallelWriter(),
 
-                        CollisionEvents = _arrowCollisionEvents.AsReadOnly(),
+                        CollisionEvents = arrowCollisionEvents.AsReadOnly(),
 
                         DamagedLookup = _damagedLookup,
                         SpawnHitEffectLookup = _spawnHitEffectLookup,
 
                         CurrentTime = SystemAPI.Time.ElapsedTime,
                     }
-                    .ScheduleParallel(_arrowQuery, state.Dependency)
-                    .Complete();
-                ecb.Playback(state.EntityManager);
+                    .ScheduleParallel(_arrowQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-                _arrowCollisionEvents.Clear();
-            }
+            dependency = arrowCollisionEvents.Dispose(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

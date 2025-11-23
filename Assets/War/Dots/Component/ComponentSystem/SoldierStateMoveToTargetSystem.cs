@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -82,18 +83,23 @@ namespace War.Dots.Component.ComponentSystem
             _damagedLookup.Update(ref state);
             _soldierTransformLookup.Update(ref state);
 
-            EntityCommandBuffer ecb = new(Allocator.TempJob);
-            new CheckTargetValidJob
-                {
-                    DamagedLookup = _damagedLookup,
-                    SoldierTransformLookup = _soldierTransformLookup,
+            JobHandle dependency = state.Dependency;
 
-                    EntityCommandBuffer = ecb.AsParallelWriter(),
-                }
-                .ScheduleParallel(_checkTargetValidQuery, state.Dependency)
-                .Complete();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency =
+                new CheckTargetValidJob
+                    {
+                        DamagedLookup = _damagedLookup,
+                        SoldierTransformLookup = _soldierTransformLookup,
+
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
+                    }
+                    .ScheduleParallel(_checkTargetValidQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

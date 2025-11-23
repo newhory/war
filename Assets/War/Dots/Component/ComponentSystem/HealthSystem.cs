@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -37,23 +38,29 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Health>()
                     .WithNone<DestroyOn>()
                     .Build();
-        
+
         public void OnDestroy(ref SystemState state)
         {
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            using EntityCommandBuffer excludeSoldierEcb = new(Allocator.TempJob);
-            new CheckHealthJob
-                {
-                    EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter(),
+            JobHandle dependency = state.Dependency;
 
-                    CurrentTime = SystemAPI.Time.ElapsedTime
-                }
-                .ScheduleParallel(_healthQuery, state.Dependency)
-                .Complete();
-            excludeSoldierEcb.Playback(state.EntityManager);
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+
+            EntityCommandBuffer excludeSoldierEcb = ecbSystem.CreateCommandBuffer();
+            dependency =
+                new CheckHealthJob
+                    {
+                        EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter(),
+
+                        CurrentTime = SystemAPI.Time.ElapsedTime
+                    }
+                    .ScheduleParallel(_healthQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

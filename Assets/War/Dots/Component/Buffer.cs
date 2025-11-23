@@ -16,12 +16,12 @@ namespace War.Dots.Component
         public float3 EndPosition;
     }
 
-    public struct SpawnHitEffect : IBufferElementData
+    public struct SpawnHitEffect : ICleanupBufferElementData
     {
         public float3 Position;
     }
 
-    public struct Damaged : IBufferElementData
+    public struct Damaged : ICleanupBufferElementData
     {
         public Entity Hitter;
         public float HitDamage;

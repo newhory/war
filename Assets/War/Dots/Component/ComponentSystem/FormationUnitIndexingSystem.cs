@@ -9,7 +9,7 @@ namespace War.Dots.Component.ComponentSystem
         public Formation Formation;
     }
 
-    [UpdateInGroup(typeof(Group.PostSpawnSystemGroup))]
+    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct FormationUnitIndexingSystem : ISystem
     {
@@ -55,6 +55,11 @@ namespace War.Dots.Component.ComponentSystem
                 Formation requestedFormation = resetRequest.Formation;
 
                 _formationQuery.SetSharedComponentFilter(requestedFormation);
+
+                if (_formationQuery.IsEmpty)
+                {
+                    continue;
+                }
 
                 FormationEntity formationEntity = _formationQuery.GetSingleton<FormationEntity>();
 

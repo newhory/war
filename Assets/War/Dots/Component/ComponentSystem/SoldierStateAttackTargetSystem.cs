@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
@@ -20,9 +21,12 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
             [ReadOnly] public double CurrentTime;
 
+            [ReadOnly] public BufferLookup<Damaged> DamagedLookup;
+            [ReadOnly] public BufferLookup<SpawnHitEffect> SpawnHitEffectLookup;
+
 
             public void Execute(
-                Entity entity, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer,
+                Entity soldierEntity, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer,
                 ref Attack attack, ref SoldierTargetForAttack targetForAttack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
                 in Team team, in LocalTransform localTransform,
                 in SoldierWeapon soldierWeapon, in AttackData attackData, in AttackPower attackPower, in AttackRange attackRange)
@@ -35,12 +39,12 @@ namespace War.Dots.Component.ComponentSystem
                     soldierAnimation.Next = SoldierAnimation.State.Default;
 
                     targetForAttack.TargetSoldier = Entity.Null;
-                    
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(entity.Index, entity, true);
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(entity.Index, entity, false);
-                    
-                    EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, true);
-                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, true);
+
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(soldierEntity.Index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(soldierEntity.Index, soldierEntity, false);
+
+                    EntityCommandBuffer.SetComponentEnabled<Movable>(soldierEntity.Index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(soldierEntity.Index, soldierEntity, true);
 
                     return;
                 }
@@ -69,8 +73,15 @@ namespace War.Dots.Component.ComponentSystem
                             switch (soldierWeapon.Type)
                             {
                                 case SoldierWeaponType.Melee:
-                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.TargetSoldier, new Damaged { Hitter = entity, HitDamage = attackPower.Value });
-                                    EntityCommandBuffer.AppendToBuffer(entity.Index, targetForAttack.TargetSoldier, new SpawnHitEffect { Position = otherPos });
+                                    if (DamagedLookup.HasBuffer(targetForAttack.TargetSoldier))
+                                    {
+                                        EntityCommandBuffer.AppendToBuffer(soldierEntity.Index, targetForAttack.TargetSoldier, new Damaged { Hitter = soldierEntity, HitDamage = attackPower.Value });
+                                    }
+
+                                    if (SpawnHitEffectLookup.HasBuffer(targetForAttack.TargetSoldier))
+                                    {
+                                        EntityCommandBuffer.AppendToBuffer(soldierEntity.Index, targetForAttack.TargetSoldier, new SpawnHitEffect { Position = otherPos });
+                                    }
 
                                     break;
 
@@ -78,7 +89,7 @@ namespace War.Dots.Component.ComponentSystem
                                     arrowSpawnDataBuffer.Add(
                                         new SpawnArrow
                                         {
-                                            Shooter = entity,
+                                            Shooter = soldierEntity,
                                             ShooterTeamColor = team.Color,
                                             Target = targetForAttack.TargetSoldier,
                                             Damage = attackPower.Value,
@@ -109,14 +120,14 @@ namespace War.Dots.Component.ComponentSystem
                         if (CurrentTime >= attack.AttackTime + attackData.Duration + attackData.Delay)
                         {
                             attack.AttackStep = Attack.Step.NotYet;
-                            
+
                             moveToDestination.Position = pos;
 
-                            EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(entity.Index, entity, true);
-                            EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(entity.Index, entity, false);
-                            
-                            EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, true);
-                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, true);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(soldierEntity.Index, soldierEntity, true);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(soldierEntity.Index, soldierEntity, false);
+
+                            EntityCommandBuffer.SetComponentEnabled<Movable>(soldierEntity.Index, soldierEntity, true);
+                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(soldierEntity.Index, soldierEntity, true);
                         }
 
                         break;
@@ -127,6 +138,8 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _stateAttackTargetQuery;
         private ComponentLookup<LocalTransform> _localTransformLookup;
+        private BufferLookup<Damaged> _damagedLookup;
+        private BufferLookup<SpawnHitEffect> _spawnHitEffectLookup;
 
 
         public void OnCreate(ref SystemState state)
@@ -141,6 +154,8 @@ namespace War.Dots.Component.ComponentSystem
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
+            _damagedLookup = state.GetBufferLookup<Damaged>(true);
+            _spawnHitEffectLookup = state.GetBufferLookup<SpawnHitEffect>(true);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -150,19 +165,29 @@ namespace War.Dots.Component.ComponentSystem
         public void OnUpdate(ref SystemState state)
         {
             _localTransformLookup.Update(ref state);
+            _damagedLookup.Update(ref state);
+            _spawnHitEffectLookup.Update(ref state);
 
-            EntityCommandBuffer ecb = new(Allocator.TempJob);
-            new AttackJob
-                {
-                    EntityCommandBuffer = ecb.AsParallelWriter(),
+            JobHandle dependency = state.Dependency;
 
-                    LocalTransformLookup = _localTransformLookup,
-                    CurrentTime = SystemAPI.Time.ElapsedTime,
-                }
-                .ScheduleParallel(_stateAttackTargetQuery, state.Dependency)
-                .Complete();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency =
+                new AttackJob
+                    {
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
+
+                        LocalTransformLookup = _localTransformLookup,
+                        CurrentTime = SystemAPI.Time.ElapsedTime,
+
+                        DamagedLookup = _damagedLookup,
+                        SpawnHitEffectLookup = _spawnHitEffectLookup,
+                    }
+                    .ScheduleParallel(_stateAttackTargetQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

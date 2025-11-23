@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Transforms;
@@ -47,14 +48,16 @@ namespace War.Dots.Component.ComponentSystem
 
                     vel.y = -0.5f * duration * Gravity;
 
-                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new LocalTransform { Position = arrowSpawnData.StartPosition, Scale = ArrowScale });
+                    float3 forward = math.normalize(vel);
+
+                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new LocalTransform { Position = arrowSpawnData.StartPosition, Rotation = quaternion.LookRotationSafe(forward, math.up()), Scale = ArrowScale });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new PhysicsVelocity { Linear = vel });
 
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Arrow { Shooter = arrowSpawnData.Shooter });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Team { Color = arrowSpawnData.ShooterTeamColor });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Movable());
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Rotatable());
-                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Forward { Value = math.normalize(vel) });
+                    EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new Forward { Value = forward });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new SoldierTargetForAttack { TargetSoldier = arrowSpawnData.Target });
                     EntityCommandBuffer.AddComponent(entityIndex, arrowEntity, new AttackPower { Value = arrowSpawnData.Damage });
 
@@ -93,11 +96,20 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
+        [BurstCompile]
+        private partial struct RemoveJustCreatedJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<JustCreated>(entity.Index, entity);
+        }
+
 
         private EntityQuery _spawnArrowQuery;
         private EntityQuery _justCreatedArrowQuery;
-        
-        
+
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<ArrowSpawner>();
@@ -126,49 +138,39 @@ namespace War.Dots.Component.ComponentSystem
                 return;
             }
 
+            JobHandle dependency = state.Dependency;
+
             ArrowSpawner arrowSpawner = SystemAPI.GetSingleton<ArrowSpawner>();
 
-            EntityCommandBuffer ecb = new(Allocator.TempJob);
-            new SpawnArrowJob
-                {
-                    EntityCommandBuffer = ecb.AsParallelWriter(),
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
-                    ProtoType = arrowSpawner.ArrowProtoType,
-                    ArrowScale = arrowSpawner.ArrowScale,
-                    Gravity = UnityEngine.Physics.gravity.y,
-                }
-                .ScheduleParallel(_spawnArrowQuery, state.Dependency)
-                .Complete();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency =
+                new SpawnArrowJob
+                    {
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
 
-            if (_justCreatedArrowQuery.CalculateEntityCount() == 0)
-            {
-                return;
-            }
+                        ProtoType = arrowSpawner.ArrowProtoType,
+                        ArrowScale = arrowSpawner.ArrowScale,
+                        Gravity = UnityEngine.Physics.gravity.y,
+                    }
+                    .ScheduleParallel(_spawnArrowQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-            new SetCollisionJob
-                {
-                    WorldLayer = Setting.WorldLayer,
-                    RedTeamLayer = Setting.RedTeamLayer,
-                    BlueTeamLayer = Setting.BlueTeamLayer,
-                }
-                .ScheduleParallel(_justCreatedArrowQuery, state.Dependency)
-                .Complete();
+            dependency =
+                new SetCollisionJob
+                    {
+                        WorldLayer = Setting.WorldLayer,
+                        RedTeamLayer = Setting.RedTeamLayer,
+                        BlueTeamLayer = Setting.BlueTeamLayer,
+                    }
+                    .ScheduleParallel(_justCreatedArrowQuery, dependency);
 
-            ecb = new EntityCommandBuffer(Allocator.Temp);
-            foreach (
-                (RefRO<JustCreated> _, Entity entity)
-                in
-                SystemAPI.Query<RefRO<JustCreated>>()
-                    .WithAll<Arrow>()
-                    .WithEntityAccess())
-            {
-                ecb.RemoveComponent<JustCreated>(entity);
-            }
+            ecb = ecbSystem.CreateCommandBuffer();
+            dependency = new RemoveJustCreatedJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_justCreatedArrowQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            state.Dependency = dependency;
         }
     }
 }

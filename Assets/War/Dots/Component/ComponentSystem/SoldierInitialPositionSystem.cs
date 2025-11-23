@@ -8,7 +8,9 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.PostSpawnSystemGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
+    [UpdateAfter(typeof(FormationUnitIndexingSystem))]
+    [UpdateBefore(typeof(SoldierAddPresentationSystem))]
     public partial struct SoldierInitialPositionSystem : ISystem
     {
         [BurstCompile]

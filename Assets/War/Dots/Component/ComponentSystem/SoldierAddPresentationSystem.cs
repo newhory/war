@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
@@ -10,7 +9,7 @@ using ZLinq;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.AddPresentationSystemGroup))]
+    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial class SoldierAddPresentationSystem : SystemBase
     {
@@ -76,8 +75,9 @@ namespace War.Dots.Component.ComponentSystem
 
         protected override void OnUpdate()
         {
-            EntityCommandBuffer ecbSetSoldierView = new(Allocator.TempJob);
-
+            EndInitializationEntityCommandBufferSystem ecbSystem = World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            
             foreach (
                 var (soldier, team, localTransform, forward, entity)
                 in
@@ -119,7 +119,7 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (animator)
                 {
-                    ecbSetSoldierView.AddComponent(entity, new UnityAnimator { Animator = animator });
+                    ecb.AddComponent(entity, new UnityAnimator { Animator = animator });
                 }
 
                 if (!gameObject.TryGetComponent(out NavMeshAgent navMeshAgent))
@@ -129,7 +129,7 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (navMeshAgent)
                 {
-                    ecbSetSoldierView.AddComponent(entity, new UnityNavMeshAgent { Agent = navMeshAgent });
+                    ecb.AddComponent(entity, new UnityNavMeshAgent { Agent = navMeshAgent });
 
                     navMeshAgent.updateRotation = true;
                 }
@@ -141,12 +141,9 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (navMeshObstacle)
                 {
-                    ecbSetSoldierView.AddComponent(entity, new UnityNavMeshObstacle { Obstacle = navMeshObstacle });
+                    ecb.AddComponent(entity, new UnityNavMeshObstacle { Obstacle = navMeshObstacle });
                 }
             }
-
-            ecbSetSoldierView.Playback(EntityManager);
-            ecbSetSoldierView.Dispose();
 
             foreach (var (entity, pooledGameObjectComponent) in _pooledGameObjectBuffer)
             {

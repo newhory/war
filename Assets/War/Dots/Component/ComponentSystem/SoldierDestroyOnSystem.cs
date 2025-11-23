@@ -88,9 +88,9 @@ namespace War.Dots.Component.ComponentSystem
                     }
                     .Schedule(dependency);
 
-            needToUpdateFormationIds.Dispose(dependency);
+            dependency = needToUpdateFormationIds.Dispose(dependency);
             
-            dependency.Complete();
+            state.Dependency = dependency;
         }
     }
 }

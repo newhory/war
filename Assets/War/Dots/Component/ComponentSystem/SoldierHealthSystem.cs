@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Physics;
 
 
@@ -26,7 +27,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.SetComponentEnabled<Alive>(entity.Index, entity, false);
                 EntityCommandBuffer.SetComponentEnabled<Movable>(entity.Index, entity, false);
                 EntityCommandBuffer.SetComponentEnabled<Rotatable>(entity.Index, entity, false);
-                
+
                 EntityCommandBuffer.RemoveComponent<Damaged>(entity.Index, entity);
                 EntityCommandBuffer.RemoveComponent<PhysicsCollider>(entity.Index, entity);
 
@@ -51,14 +52,15 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            using EntityCommandBuffer soldierEcb = new(Allocator.TempJob);
-            new CheckSoldierHealthJob
-                {
-                    EntityCommandBuffer = soldierEcb.AsParallelWriter(),
-                }
-                .ScheduleParallel(_soldierHealthGroup, state.Dependency)
-                .Complete();
-            soldierEcb.Playback(state.EntityManager);
+            JobHandle dependency = state.Dependency;
+
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+
+            EntityCommandBuffer soldierEcb = ecbSystem.CreateCommandBuffer();
+            dependency = new CheckSoldierHealthJob { EntityCommandBuffer = soldierEcb.AsParallelWriter() }.ScheduleParallel(_soldierHealthGroup, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            state.Dependency = dependency;
         }
     }
 }

@@ -92,7 +92,7 @@ namespace War.Dots.Component.ComponentSystem
 
             #region transform
 
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new LocalTransform { Position = soldierForSpawn.Position, Scale = 1f });
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new LocalTransform { Position = soldierForSpawn.Position, Rotation = soldierForSpawn.Rotation, Scale = 1f });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new NavMeshAgentData { Radius = soldierData.radius });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Velocity());
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Acceleration { Value = float3.zero, Max = soldierForSpawn.SoldierData.moveAcceleration });
@@ -300,8 +300,6 @@ namespace War.Dots.Component.ComponentSystem
             NativeList<SoldierForSpawn> spawnSoldierList = new(Allocator.TempJob);
             NativeList<TroopForSpawn> spawnTroopList = new(Allocator.TempJob);
 
-            NativeHashSet<int> resetFormationIds = new(2, Allocator.TempJob);
-
             int currentTroopId = s_troopId;
 
             foreach (SpawnSoldierData spawnSoldierData in spawnSoldierDataBuffer)
@@ -345,8 +343,6 @@ namespace War.Dots.Component.ComponentSystem
                             Position = new float3(spawnSoldierData.Position.x + _rand.NextFloat(-3, 3), spawnSoldierData.Position.y, spawnSoldierData.Position.z + _rand.NextFloat(-3, 3)),
                             Rotation = spawnSoldierData.Rotation,
                         });
-
-                    resetFormationIds.Add(currentTroopId);
                 }
             }
 

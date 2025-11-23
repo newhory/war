@@ -8,7 +8,7 @@ using ZLinq;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderFirst = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct SoldierInitializeSystem : ISystem
     {
@@ -206,7 +206,7 @@ namespace War.Dots.Component.ComponentSystem
 
             if (!_spawnSoldierQuery.IsEmpty || !_spawnTroopQuery.IsEmpty)
             {
-                EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+                EndInitializationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
 
                 if (!_spawnSoldierQuery.IsEmpty)
                 {

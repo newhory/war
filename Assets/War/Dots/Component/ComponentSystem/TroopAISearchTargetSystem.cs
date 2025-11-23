@@ -22,6 +22,12 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute(Entity entity, ref TroopTargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
             {
+                if (targetForAttack.TargetTroop != Entity.Null &&
+                    LocalTransformLookup.HasComponent(targetForAttack.TargetTroop))
+                {
+                    return;
+                }
+
                 float range = searchTargetRange.Value;
                 float3 pos = localTransform.Position;
 
