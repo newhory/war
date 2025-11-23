@@ -212,6 +212,7 @@ namespace War.Dots.Component.ComponentSystem
                             {
                                 if (_currentSelectedTeamColor == teamColor)
                                 {
+                                    state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
                                     state.EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
 
                                     _currentSelectedEntity = currentPickedTroop;

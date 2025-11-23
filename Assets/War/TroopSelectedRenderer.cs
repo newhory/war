@@ -15,14 +15,18 @@ namespace War
 
     public class TroopSelectedRenderer : MonoBehaviour
     {
-        [Header(nameof(LineRenderer))]
-        [SerializeField] private LineRenderer lineRendererPrefab;
+        [Header(nameof(LineRenderer))] [SerializeField]
+        private LineRenderer lineRendererPrefab;
+
         [SerializeField] private float widthMultiplier = 0.05f;
         [SerializeField] private int numCapVertices = 8;
         [SerializeField] private int numCornerVertices = 8;
+        [SerializeField] private Color redTeamColor = Color.red;
+        [SerializeField] private Color blueTeamColor = Color.blue;
 
-        [Header("Outline Padding")]
-        [SerializeField] private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+        [Header("Outline Padding")] [SerializeField]
+        private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
 
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
@@ -75,7 +79,7 @@ namespace War
         private void Update()
         {
             // 쿼리: Selected Troop with hull buffer
-            EntityQuery selectedTroopQuery = _entityManager.CreateEntityQuery(typeof(TroopSelected), typeof(TroopHullPoint));
+            EntityQuery selectedTroopQuery = _entityManager.CreateEntityQuery(typeof(TroopSelected), typeof(TroopHullPoint), typeof(Team));
 
             using NativeArray<Entity> selectedTroopEntities = selectedTroopQuery.ToEntityArray(Allocator.Temp);
             using NativeList<Entity> unselectedTroopEntities = new(Allocator.Temp);
@@ -98,8 +102,13 @@ namespace War
                 return;
             }
 
-            foreach (Entity selectedTroopEntity in selectedTroopEntities)
+            using NativeArray<Team> selectedTroopTeams = selectedTroopQuery.ToComponentDataArray<Team>(Allocator.Temp);
+
+            for (int i = 0, count = selectedTroopEntities.Length; i < count; ++i)
             {
+                Entity selectedTroopEntity = selectedTroopEntities[i];
+                Team selectedTroopTeam = selectedTroopTeams[i];
+
                 DynamicBuffer<TroopHullPoint> troopHullPoints = _entityManager.GetBuffer<TroopHullPoint>(selectedTroopEntity);
 
                 if (troopHullPoints.Length < 2)
@@ -112,28 +121,28 @@ namespace War
                 // 1) hull 점들을 float2 리스트로 수집 (XZ)
                 int n = troopHullPoints.Length;
                 NativeArray<float2> hull = new NativeArray<float2>(n, Allocator.Temp);
-                for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
                 {
-                    float3 p = troopHullPoints[i].Position;
-                    hull[i] = new float2(p.x, p.z);
+                    float3 p = troopHullPoints[j].Position;
+                    hull[j] = new float2(p.x, p.z);
                 }
 
                 // 2) centroid 계산 (노멀 방향 판정용)
                 float2 centroid = float2.zero;
-                for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
                 {
-                    centroid += hull[i];
+                    centroid += hull[j];
                 }
 
                 centroid /= n;
 
                 // 3) 각 정점에 대해 vertex normal 계산 -> outward 보정 -> padding 적용
                 float3[] knotArray = new float3[n];
-                for (int i = 0; i < n; ++i)
+                for (int j = 0; j < n; ++j)
                 {
-                    float2 prev = hull[(i - 1 + n) % n];
-                    float2 curr = hull[i];
-                    float2 next = hull[(i + 1) % n];
+                    float2 prev = hull[(j - 1 + n) % n];
+                    float2 curr = hull[j];
+                    float2 next = hull[(j + 1) % n];
 
                     float2 dir1 = math.normalize(curr - prev);
                     float2 dir2 = math.normalize(next - curr);
@@ -176,7 +185,7 @@ namespace War
 
                     float2 padded = curr + vnormal * appliedOffset;
 
-                    knotArray[i] = new float3(padded.x, height, padded.y);
+                    knotArray[j] = new float3(padded.x, height, padded.y);
                 }
 
                 hull.Dispose();
@@ -203,20 +212,25 @@ namespace War
                 int totalSamples = math.max(4, (int)(approxLength * samplesPerUnit));
 
                 Vector3[] positions = new Vector3[totalSamples + 1];
-                for (int i = 0; i <= totalSamples; ++i)
+                for (int j = 0; j <= totalSamples; ++j)
                 {
-                    float t = i / (float)totalSamples;
+                    float t = j / (float)totalSamples;
 
                     // EvaluatePosition returns local position; container.TransformPoint -> world
                     float3 localPos = container.splineContainer.Spline.EvaluatePosition(t);
                     Vector3 worldPos = container.splineContainer.transform.TransformPoint(new Vector3(localPos.x, localPos.y, localPos.z));
 
-                    positions[i] = worldPos;
+                    positions[j] = worldPos;
                 }
 
                 // assign to LineRenderer
                 container.lineRenderer.positionCount = positions.Length;
                 container.lineRenderer.SetPositions(positions);
+
+                Color teamColor = selectedTroopTeam.Color == TeamColor.Red ? redTeamColor : blueTeamColor;
+
+                container.lineRenderer.startColor = teamColor;
+                container.lineRenderer.endColor = teamColor;
             }
         }
 
