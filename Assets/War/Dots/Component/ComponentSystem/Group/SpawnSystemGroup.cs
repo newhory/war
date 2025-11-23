@@ -9,9 +9,4 @@ namespace War.Dots.Component.ComponentSystem.Group
     public partial class SpawnSystemGroup : ComponentSystemGroup
     {
     }
-
-    [UpdateInGroup(typeof(SpawnSystemGroup), OrderFirst = true)]
-    public partial class PreSpawnSystemGroup : ComponentSystemGroup
-    {
-    }
 }
