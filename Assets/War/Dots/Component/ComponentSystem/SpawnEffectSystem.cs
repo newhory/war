@@ -24,6 +24,11 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<SpawnHitEffect> hitEffectDataBuffer)
             {
+                if (hitEffectDataBuffer.IsEmpty)
+                {
+                    return;
+                }
+
                 foreach (SpawnHitEffect hitEffectData in hitEffectDataBuffer)
                 {
                     Entity effectEntity = EntityCommandBuffer.Instantiate(entityIndex, ProtoType);
@@ -61,24 +66,24 @@ namespace War.Dots.Component.ComponentSystem
         {
             EffectSpawner effectSpawner = SystemAPI.GetSingleton<EffectSpawner>();
 
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
             float currentTime = (float)SystemAPI.Time.ElapsedTime;
 
             SpawnEffect(
-                _hitEffectDataQuery,
                 ref state,
-                ref effectSpawner.HitEffectProtoType,
+                _hitEffectDataQuery,
+                ecbSystem,
+                effectSpawner.HitEffectProtoType,
                 currentTime,
                 effectSpawner.HitEffectDuration);
         }
 
-        private void SpawnEffect(EntityQuery effectDataQuery, ref SystemState state, ref Entity protoType, float currentTime, float duration)
+        private void SpawnEffect(ref SystemState state, EntityQuery effectDataQuery, EntityCommandBufferSystem ecbSystem, in Entity protoType, float currentTime, float duration)
         {
             if (effectDataQuery.IsEmpty)
             {
                 return;
             }
-
-            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
             JobHandle dependency =

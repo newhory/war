@@ -29,6 +29,11 @@ namespace War.Dots.Component.ComponentSystem
 
             public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer)
             {
+                if (arrowSpawnDataBuffer.IsEmpty)
+                {
+                    return;
+                }
+                
                 foreach (SpawnArrow arrowSpawnData in arrowSpawnDataBuffer)
                 {
                     Entity arrowEntity = EntityCommandBuffer.Instantiate(entityIndex, ProtoType);
@@ -133,11 +138,6 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            if (_spawnArrowQuery.CalculateEntityCount() == 0)
-            {
-                return;
-            }
-
             JobHandle dependency = state.Dependency;
 
             ArrowSpawner arrowSpawner = SystemAPI.GetSingleton<ArrowSpawner>();

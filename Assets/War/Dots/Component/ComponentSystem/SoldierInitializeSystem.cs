@@ -101,7 +101,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity, in Soldier soldier, in SoldierAttachedTroop soldierAttachedTroop, in Team team) => EntityCommandBuffer.SetName(entity.Index, entity, $"<[{team.Color}]Troop {soldierAttachedTroop.TroopId}>{soldier.Type}_{soldier.Id}");
+            public void Execute(Entity soldierEntity, in Soldier soldier, in SoldierAttachedTroop soldierAttachedTroop, in Team team) => EntityCommandBuffer.SetName(soldierEntity.Index, soldierEntity, $"<[{team.Color}]Troop {soldierAttachedTroop.TroopId}>{soldier.Type}_{soldier.Id}");
         }
 
         private partial struct SetSpawnTroopNameJob : IJobEntity
@@ -119,7 +119,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedSoldier>(entity.Index, entity);
+            public void Execute(Entity soldierEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedSoldier>(soldierEntity.Index, soldierEntity);
         }
 
         [BurstCompile]
@@ -128,7 +128,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedTroop>(entity.Index, entity);
+            public void Execute(Entity troopEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedTroop>(troopEntity.Index, troopEntity);
         }
 
 

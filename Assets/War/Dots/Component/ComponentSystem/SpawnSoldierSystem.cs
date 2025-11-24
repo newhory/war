@@ -125,8 +125,12 @@ namespace War.Dots.Component.ComponentSystem
             #region buffer
 
                 EntityCommandBuffer.AddBuffer<SpawnHitEffect>(index, soldierEntity);
-                EntityCommandBuffer.AddBuffer<SpawnArrow>(index, soldierEntity);
                 EntityCommandBuffer.AddBuffer<Damaged>(index, soldierEntity);
+
+                if (soldierData.weapon == SoldierWeaponType.Arrow)
+                {
+                    EntityCommandBuffer.AddBuffer<SpawnArrow>(index, soldierEntity);
+                }
 
             #endregion
 
@@ -214,7 +218,7 @@ namespace War.Dots.Component.ComponentSystem
 
             #region combat
 
-                EntityCommandBuffer.AddComponent(index, troopEntity, new SearchTargetRange { Value = 20f });
+                EntityCommandBuffer.AddComponent(index, troopEntity, new SearchTargetRange { Value = 200f });
 
             #endregion
 

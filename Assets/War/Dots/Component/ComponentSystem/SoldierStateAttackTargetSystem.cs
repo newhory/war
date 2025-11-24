@@ -21,12 +21,13 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
             [ReadOnly] public double CurrentTime;
 
+            [ReadOnly] public BufferLookup<SpawnArrow> SpawnArrowLookup;
             [ReadOnly] public BufferLookup<Damaged> DamagedLookup;
             [ReadOnly] public BufferLookup<SpawnHitEffect> SpawnHitEffectLookup;
 
 
             public void Execute(
-                Entity soldierEntity, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer,
+                [EntityIndexInQuery] int index, Entity soldierEntity,
                 ref Attack attack, ref SoldierTargetForAttack targetForAttack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
                 in Team team, in LocalTransform localTransform,
                 in SoldierWeapon soldierWeapon, in AttackData attackData, in AttackPower attackPower, in AttackRange attackRange)
@@ -40,11 +41,11 @@ namespace War.Dots.Component.ComponentSystem
 
                     targetForAttack.TargetSoldier = Entity.Null;
 
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(soldierEntity.Index, soldierEntity, true);
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(soldierEntity.Index, soldierEntity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, soldierEntity, false);
 
-                    EntityCommandBuffer.SetComponentEnabled<Movable>(soldierEntity.Index, soldierEntity, true);
-                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(soldierEntity.Index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<Movable>(index, soldierEntity, true);
+                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(index, soldierEntity, true);
 
                     return;
                 }
@@ -75,29 +76,28 @@ namespace War.Dots.Component.ComponentSystem
                                 case SoldierWeaponType.Melee:
                                     if (DamagedLookup.HasBuffer(targetForAttack.TargetSoldier))
                                     {
-                                        EntityCommandBuffer.AppendToBuffer(soldierEntity.Index, targetForAttack.TargetSoldier, new Damaged { Hitter = soldierEntity, HitDamage = attackPower.Value });
+                                        EntityCommandBuffer.AppendToBuffer(index, targetForAttack.TargetSoldier, new Damaged { Hitter = soldierEntity, HitDamage = attackPower.Value });
                                     }
 
                                     if (SpawnHitEffectLookup.HasBuffer(targetForAttack.TargetSoldier))
                                     {
-                                        EntityCommandBuffer.AppendToBuffer(soldierEntity.Index, targetForAttack.TargetSoldier, new SpawnHitEffect { Position = otherPos });
+                                        EntityCommandBuffer.AppendToBuffer(index, targetForAttack.TargetSoldier, new SpawnHitEffect { Position = otherPos });
                                     }
 
                                     break;
 
                                 case SoldierWeaponType.Arrow:
-                                    arrowSpawnDataBuffer.Add(
-                                        new SpawnArrow
-                                        {
-                                            Shooter = soldierEntity,
-                                            ShooterTeamColor = team.Color,
-                                            Target = targetForAttack.TargetSoldier,
-                                            Damage = attackPower.Value,
-                                            MinSpeed = 8,
-                                            MaxPoiDeviation = 0.25f,
-                                            StartPosition = new float3(pos.x, pos.y + 0.7f, pos.z),
-                                            EndPosition = new float3(otherPos.x, otherPos.y + 0.7f, otherPos.z)
-                                        });
+                                    EntityCommandBuffer.AppendToBuffer(index, soldierEntity, new SpawnArrow
+                                    {
+                                        Shooter = soldierEntity,
+                                        ShooterTeamColor = team.Color,
+                                        Target = targetForAttack.TargetSoldier,
+                                        Damage = attackPower.Value,
+                                        MinSpeed = 8,
+                                        MaxPoiDeviation = 0.25f,
+                                        StartPosition = new float3(pos.x, pos.y + 0.7f, pos.z),
+                                        EndPosition = new float3(otherPos.x, otherPos.y + 0.7f, otherPos.z)
+                                    });
                                     break;
                             }
 
@@ -123,11 +123,11 @@ namespace War.Dots.Component.ComponentSystem
 
                             moveToDestination.Position = pos;
 
-                            EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(soldierEntity.Index, soldierEntity, true);
-                            EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(soldierEntity.Index, soldierEntity, false);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, soldierEntity, true);
+                            EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, soldierEntity, false);
 
-                            EntityCommandBuffer.SetComponentEnabled<Movable>(soldierEntity.Index, soldierEntity, true);
-                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(soldierEntity.Index, soldierEntity, true);
+                            EntityCommandBuffer.SetComponentEnabled<Movable>(index, soldierEntity, true);
+                            EntityCommandBuffer.SetComponentEnabled<Rotatable>(index, soldierEntity, true);
                         }
 
                         break;
@@ -138,6 +138,7 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _stateAttackTargetQuery;
         private ComponentLookup<LocalTransform> _localTransformLookup;
+        private BufferLookup<SpawnArrow> _spawnArrowLookup;
         private BufferLookup<Damaged> _damagedLookup;
         private BufferLookup<SpawnHitEffect> _spawnHitEffectLookup;
 
@@ -150,10 +151,11 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Team, NavMeshAgentData, SoldierWeapon, AttackData, AttackPower, AttackRange>()
                     .WithAllRW<Attack, SoldierAnimation>()
                     .WithAllRW<Forward, Destination>()
-                    .WithAllRW<SpawnArrow, SoldierTargetForAttack>()
+                    .WithAllRW<SoldierTargetForAttack>()
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
+            _spawnArrowLookup = state.GetBufferLookup<SpawnArrow>(true);
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
             _spawnHitEffectLookup = state.GetBufferLookup<SpawnHitEffect>(true);
         }
@@ -165,6 +167,7 @@ namespace War.Dots.Component.ComponentSystem
         public void OnUpdate(ref SystemState state)
         {
             _localTransformLookup.Update(ref state);
+            _spawnArrowLookup.Update(ref state);
             _damagedLookup.Update(ref state);
             _spawnHitEffectLookup.Update(ref state);
 
@@ -181,6 +184,7 @@ namespace War.Dots.Component.ComponentSystem
                         LocalTransformLookup = _localTransformLookup,
                         CurrentTime = SystemAPI.Time.ElapsedTime,
 
+                        SpawnArrowLookup = _spawnArrowLookup,
                         DamagedLookup = _damagedLookup,
                         SpawnHitEffectLookup = _spawnHitEffectLookup,
                     }
