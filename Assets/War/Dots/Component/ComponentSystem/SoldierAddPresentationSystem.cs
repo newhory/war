@@ -13,11 +13,61 @@ namespace War.Dots.Component.ComponentSystem
     [RequireMatchingQueriesForUpdate]
     public partial class SoldierAddPresentationSystem : SystemBase
     {
-        private Dictionary<SoldierType, ObjectPool<GameObject>> _blueTeamSoldierViewPool;
-        private Dictionary<SoldierType, ObjectPool<GameObject>> _redTeamSoldierViewPool;
+        private static Dictionary<SoldierType, ObjectPool<GameObject>> s_blueTeamSoldierViewPool;
+        private static Dictionary<SoldierType, ObjectPool<GameObject>> s_redTeamSoldierViewPool;
 
         private readonly List<(Entity entity, PooledGameObject soldierViewComponent)> _pooledGameObjectBuffer = new();
 
+
+        public static void ResetPool()
+        {
+            DisposePool();
+            InitPool();
+        }
+
+        private static void InitPool()
+        {
+            s_blueTeamSoldierViewPool ??= new Dictionary<SoldierType, ObjectPool<GameObject>>
+            {
+                { SoldierType.Archer, CreatePool(Setting.Instance.archer.blueTeamPrefab) },
+                { SoldierType.Cavalry, CreatePool(Setting.Instance.cavalry.blueTeamPrefab) },
+                { SoldierType.Shield, CreatePool(Setting.Instance.shield.blueTeamPrefab) },
+                { SoldierType.Spear, CreatePool(Setting.Instance.spear.blueTeamPrefab) }
+            };
+
+            s_redTeamSoldierViewPool ??= new Dictionary<SoldierType, ObjectPool<GameObject>>
+            {
+                { SoldierType.Archer, CreatePool(Setting.Instance.archer.redTeamPrefab) },
+                { SoldierType.Cavalry, CreatePool(Setting.Instance.cavalry.redTeamPrefab) },
+                { SoldierType.Shield, CreatePool(Setting.Instance.shield.redTeamPrefab) },
+                { SoldierType.Spear, CreatePool(Setting.Instance.spear.redTeamPrefab) }
+            };
+        }
+
+        private static void DisposePool()
+        {
+            if (s_blueTeamSoldierViewPool is not null)
+            {
+                foreach (ObjectPool<GameObject> objectPool in s_blueTeamSoldierViewPool.AsValueEnumerable().Select(pair => pair.Value))
+                {
+                    objectPool.Dispose();
+                }
+
+                s_blueTeamSoldierViewPool.Clear();
+                s_blueTeamSoldierViewPool = null;
+            }
+
+            if (s_redTeamSoldierViewPool is not null)
+            {
+                foreach (ObjectPool<GameObject> objectPool in s_redTeamSoldierViewPool.AsValueEnumerable().Select(pair => pair.Value))
+                {
+                    objectPool.Dispose();
+                }
+
+                s_redTeamSoldierViewPool.Clear();
+                s_redTeamSoldierViewPool = null;
+            }
+        }
 
         private static ObjectPool<GameObject> CreatePool(GameObject prefab) =>
             new(
@@ -29,55 +79,14 @@ namespace War.Dots.Component.ComponentSystem
                 defaultCapacity: 10);
 
 
-        protected override void OnStartRunning()
-        {
-            _blueTeamSoldierViewPool ??= new Dictionary<SoldierType, ObjectPool<GameObject>>
-            {
-                { SoldierType.Archer, CreatePool(Setting.Instance.archer.blueTeamPrefab) },
-                { SoldierType.Cavalry, CreatePool(Setting.Instance.cavalry.blueTeamPrefab) },
-                { SoldierType.Shield, CreatePool(Setting.Instance.shield.blueTeamPrefab) },
-                { SoldierType.Spear, CreatePool(Setting.Instance.spear.blueTeamPrefab) }
-            };
-
-            _redTeamSoldierViewPool ??= new Dictionary<SoldierType, ObjectPool<GameObject>>
-            {
-                { SoldierType.Archer, CreatePool(Setting.Instance.archer.redTeamPrefab) },
-                { SoldierType.Cavalry, CreatePool(Setting.Instance.cavalry.redTeamPrefab) },
-                { SoldierType.Shield, CreatePool(Setting.Instance.shield.redTeamPrefab) },
-                { SoldierType.Spear, CreatePool(Setting.Instance.spear.redTeamPrefab) }
-            };
-        }
-
-        protected override void OnDestroy()
-        {
-            if (_blueTeamSoldierViewPool is not null)
-            {
-                foreach (ObjectPool<GameObject> objectPool in _blueTeamSoldierViewPool.AsValueEnumerable().Select(pair => pair.Value))
-                {
-                    objectPool.Dispose();
-                }
-            
-                _blueTeamSoldierViewPool.Clear();
-                _blueTeamSoldierViewPool = null;
-            }
-
-            if (_redTeamSoldierViewPool is not null)
-            {
-                foreach (ObjectPool<GameObject> objectPool in _redTeamSoldierViewPool.AsValueEnumerable().Select(pair => pair.Value))
-                {
-                    objectPool.Dispose();
-                }
-            
-                _redTeamSoldierViewPool.Clear();
-                _redTeamSoldierViewPool = null;
-            }
-        }
+        protected override void OnStartRunning() => InitPool();
+        protected override void OnDestroy() => DisposePool();
 
         protected override void OnUpdate()
         {
             EndInitializationEntityCommandBufferSystem ecbSystem = World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
-            
+
             foreach (
                 var (soldier, team, localTransform, forward, entity)
                 in
@@ -89,8 +98,8 @@ namespace War.Dots.Component.ComponentSystem
                 Dictionary<SoldierType, ObjectPool<GameObject>> soldierViewPool =
                     team.ValueRO.Color switch
                     {
-                        TeamColor.Blue => _blueTeamSoldierViewPool,
-                        TeamColor.Red => _redTeamSoldierViewPool,
+                        TeamColor.Blue => s_blueTeamSoldierViewPool,
+                        TeamColor.Red => s_redTeamSoldierViewPool,
                         _ => null
                     };
 

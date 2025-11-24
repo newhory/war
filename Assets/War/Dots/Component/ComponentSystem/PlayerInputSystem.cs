@@ -146,6 +146,13 @@ namespace War.Dots.Component.ComponentSystem
                 pooledGameObjectEntities.Dispose();
 
                 EntityManager.DestroyEntity(_allArmyQuery);
+
+                SoldierAddPresentationSystem.ResetPool();
+#if HYBRID_ARROW
+                ArrowAddPresentationSystem.ResetPool();
+#endif
+                UnityEngine.Resources.UnloadUnusedAssets();
+                System.GC.Collect();
             }
         }
     }

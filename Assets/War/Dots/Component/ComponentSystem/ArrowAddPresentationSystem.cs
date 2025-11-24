@@ -15,9 +15,13 @@ namespace War.Dots.Component.ComponentSystem
         private static List<(Entity entity, PooledGameObject soldierViewComponent)> s_pooledGameObjectBuffer;
 
 
-        protected override void OnCreate() => s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
+        public static void ResetPool()
+        {
+            DisposePool();
+            InitPool();
+        }
 
-        protected override void OnStartRunning() =>
+        private static void InitPool() =>
             s_arrowPool ??=
                 new ObjectPool<GameObject>(
                     createFunc: () => Object.Instantiate(Setting.Instance.arrowRenderMeshPrefab),
@@ -33,19 +37,25 @@ namespace War.Dots.Component.ComponentSystem
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 10);
 
-        protected override void OnDestroy()
+        private static void DisposePool()
         {
             s_arrowPool?.Dispose();
             s_arrowPool = null;
         }
 
+        protected override void OnCreate() => s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
+
+        protected override void OnStartRunning() => InitPool();
+
+        protected override void OnDestroy() => DisposePool();
+
         protected override void OnUpdate()
         {
             s_pooledGameObjectBuffer.Clear();
-            
+
             EndInitializationEntityCommandBufferSystem ecbSystem = World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
-            
+
             foreach (
                 (RefRO<Arrow> _, Entity entity)
                 in
