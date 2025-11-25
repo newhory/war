@@ -24,11 +24,17 @@ namespace War.Dots.Component.Authoring
                 AddComponent(entity, new OnPointerDragStart());
                 AddComponent(entity, new OnPointerDragging());
                 AddComponent(entity, new OnPointerDragEnd());
-                AddComponent(entity, new DragStartPosition());
+                
+                AddComponent(entity, new DragStartWorldPosition());
+                AddComponent(entity, new DraggingWorldPosition());
+                AddComponent(entity, new DragEndWorldPosition());
 
                 SetComponentEnabled<OnPointerPressStart>(entity, false);
                 SetComponentEnabled<OnPointerPressEnd>(entity, false);
-                SetComponentEnabled<DragStartPosition>(entity, false);
+                
+                SetComponentEnabled<DragStartWorldPosition>(entity, false);
+                SetComponentEnabled<DraggingWorldPosition>(entity, false);
+                SetComponentEnabled<DragEndWorldPosition>(entity, false);
                 
                 AddComponent(entity, new ComponentSystem.SpawnInput());
                 AddComponent(entity, new ComponentSystem.SetSpawnData());

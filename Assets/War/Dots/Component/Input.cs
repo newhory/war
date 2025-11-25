@@ -42,7 +42,17 @@ namespace War.Dots.Component
         public Ray Ray;
     }
 
-    public struct DragStartPosition : IComponentData, IEnableableComponent
+    public struct DragStartWorldPosition : IComponentData, IEnableableComponent
+    {
+        public float3 Position;
+    }
+    
+    public struct DraggingWorldPosition : IComponentData, IEnableableComponent
+    {
+        public float3 Position;
+    }
+    
+    public struct DragEndWorldPosition : IComponentData, IEnableableComponent
     {
         public float3 Position;
     }

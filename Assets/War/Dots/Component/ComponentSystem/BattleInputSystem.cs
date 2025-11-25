@@ -16,9 +16,15 @@ namespace War.Dots.Component.ComponentSystem
     [RequireMatchingQueriesForUpdate]
     public partial struct BattleInputSystem : ISystem, ISystemStartStop
     {
-        private static Entity s_pointInput;
 
 
+        public static Entity PointInput { get; private set; }
+        public static Entity CurrentSelectedEntity { get; private set; }
+        public static TeamColor CurrentSelectedTeamColor { get; private set; }
+        public static Entity CurrentTargetCandidateEntity { get; private set; }
+
+
+        [BurstCompile]
         private static bool Cast(PhysicsWorldSingleton physicsWorldSingleton, RaycastInput raycastInput, out RaycastHit raycastHit)
         {
 #if UNITY_EDITOR
@@ -54,12 +60,6 @@ namespace War.Dots.Component.ComponentSystem
         }
 
 
-        private Entity _currentSelectedEntity;
-        private TeamColor _currentSelectedTeamColor;
-
-        private Entity _currentTargetCandidateEntity;
-
-
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<PhysicsWorldSingleton>();
@@ -73,9 +73,9 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            if (s_pointInput == Entity.Null && SystemAPI.HasSingleton<PointInput>())
+            if (PointInput == Entity.Null && SystemAPI.HasSingleton<PointInput>())
             {
-                s_pointInput = SystemAPI.GetSingletonEntity<PointInput>();
+                PointInput = SystemAPI.GetSingletonEntity<PointInput>();
             }
 
             PhysicsWorldSingleton physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
@@ -89,37 +89,43 @@ namespace War.Dots.Component.ComponentSystem
                 }
             };
 
-            float dragInputOffset = state.EntityManager.GetComponentData<PointInput>(s_pointInput).DragOffset;
+            float dragInputOffset = state.EntityManager.GetComponentData<PointInput>(PointInput).DragOffset;
 
-            if (state.EntityManager.IsComponentEnabled<OnPointerPressStart>(s_pointInput))
+            if (state.EntityManager.IsComponentEnabled<OnPointerPressStart>(PointInput))
             {
+                state.EntityManager.SetComponentEnabled<DragEndWorldPosition>(PointInput, false);
+
                 float3 dragStartPosition;
 
-                if (state.EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
+                if (state.EntityManager.IsComponentEnabled<DragStartWorldPosition>(PointInput))
                 {
-                    if (_currentTargetCandidateEntity != Entity.Null)
+                    if (CurrentTargetCandidateEntity != Entity.Null)
                     {
-                        state.EntityManager.SetComponentEnabled<TroopSelected>(_currentTargetCandidateEntity, false);
+                        state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentTargetCandidateEntity, false);
 
-                        _currentTargetCandidateEntity = Entity.Null;
+                        CurrentTargetCandidateEntity = Entity.Null;
                     }
 
-                    OnPointerDragging onPointerDragging = state.EntityManager.GetComponentData<OnPointerDragging>(s_pointInput);
+                    OnPointerDragging onPointerDragging = state.EntityManager.GetComponentData<OnPointerDragging>(PointInput);
 
-                    dragStartPosition = state.EntityManager.GetComponentData<DragStartPosition>(s_pointInput).Position;
+                    dragStartPosition = state.EntityManager.GetComponentData<DragStartWorldPosition>(PointInput).Position;
 
                     raycastInput.Start = onPointerDragging.Ray.Origin;
                     raycastInput.End = onPointerDragging.Ray.Origin + onPointerDragging.Ray.Displacement;
 
+                    // dragging
                     if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDraggingRaycastHit))
                     {
+                        state.EntityManager.SetComponentEnabled<DraggingWorldPosition>(PointInput, true);
+                        state.EntityManager.SetComponentData(PointInput, new DraggingWorldPosition { Position = onDraggingRaycastHit.Position });
+
                         (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDraggingRaycastHit.Position);
 
-                        if (currentPickedTroop != Entity.Null && teamColor != _currentSelectedTeamColor)
+                        if (currentPickedTroop != Entity.Null && teamColor != CurrentSelectedTeamColor)
                         {
                             state.EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
 
-                            _currentTargetCandidateEntity = currentPickedTroop;
+                            CurrentTargetCandidateEntity = currentPickedTroop;
                         }
 #if UNITY_EDITOR
                         UnityEngine.Debug.DrawLine(dragStartPosition, onDraggingRaycastHit.Position, UnityEngine.Color.red);
@@ -128,20 +134,22 @@ namespace War.Dots.Component.ComponentSystem
                 }
                 else
                 {
-                    OnPointerDragStart onPointerDragStart = state.EntityManager.GetComponentData<OnPointerDragStart>(s_pointInput);
-                    OnPointerDragging onPointerDragging = state.EntityManager.GetComponentData<OnPointerDragging>(s_pointInput);
+                    OnPointerDragStart onPointerDragStart = state.EntityManager.GetComponentData<OnPointerDragStart>(PointInput);
+                    OnPointerDragging onPointerDragging = state.EntityManager.GetComponentData<OnPointerDragging>(PointInput);
 
-                    if (math.distance(onPointerDragStart.Point, onPointerDragging.Point) >= dragInputOffset)
+                    if (CurrentSelectedEntity == Entity.Null ||
+                        math.distance(onPointerDragStart.Point, onPointerDragging.Point) >= dragInputOffset)
                     {
                         raycastInput.Start = onPointerDragStart.Ray.Origin;
                         raycastInput.End = onPointerDragStart.Ray.Origin + onPointerDragStart.Ray.Displacement;
 
+                        // drag start
                         if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDragStartRaycastHit))
                         {
                             dragStartPosition = onDragStartRaycastHit.Position;
 
-                            state.EntityManager.SetComponentEnabled<DragStartPosition>(s_pointInput, true);
-                            state.EntityManager.SetComponentData(s_pointInput, new DragStartPosition { Position = dragStartPosition });
+                            state.EntityManager.SetComponentEnabled<DragStartWorldPosition>(PointInput, true);
+                            state.EntityManager.SetComponentData(PointInput, new DragStartWorldPosition { Position = dragStartPosition });
 
                             (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, dragStartPosition);
 
@@ -149,8 +157,8 @@ namespace War.Dots.Component.ComponentSystem
                             {
                                 state.EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
 
-                                _currentSelectedEntity = currentPickedTroop;
-                                _currentSelectedTeamColor = teamColor;
+                                CurrentSelectedEntity = currentPickedTroop;
+                                CurrentSelectedTeamColor = teamColor;
                             }
 #if UNITY_EDITOR
                             UnityEngine.Debug.DrawLine(dragStartPosition, dragStartPosition + math.up() * 2.5f, UnityEngine.Color.azure, 5f);
@@ -160,78 +168,81 @@ namespace War.Dots.Component.ComponentSystem
                 }
             }
 
-            if (state.EntityManager.IsComponentEnabled<OnPointerPressEnd>(s_pointInput))
+            if (state.EntityManager.IsComponentEnabled<OnPointerPressEnd>(PointInput))
             {
-                if (_currentTargetCandidateEntity != Entity.Null)
+                if (CurrentTargetCandidateEntity != Entity.Null)
                 {
-                    state.EntityManager.SetComponentEnabled<TroopSelected>(_currentTargetCandidateEntity, false);
+                    state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentTargetCandidateEntity, false);
 
-                    _currentTargetCandidateEntity = Entity.Null;
+                    CurrentTargetCandidateEntity = Entity.Null;
                 }
 
-                state.EntityManager.SetComponentEnabled<OnPointerPressEnd>(s_pointInput, false);
+                state.EntityManager.SetComponentEnabled<OnPointerPressEnd>(PointInput, false);
 
-                OnPointerDragEnd onPointerDragEnd = state.EntityManager.GetComponentData<OnPointerDragEnd>(s_pointInput);
+                OnPointerDragEnd onPointerDragEnd = state.EntityManager.GetComponentData<OnPointerDragEnd>(PointInput);
 
                 raycastInput.Start = onPointerDragEnd.Ray.Origin;
                 raycastInput.End = onPointerDragEnd.Ray.Origin + onPointerDragEnd.Ray.Displacement;
 
                 if (Cast(physicsWorldSingleton, raycastInput, out RaycastHit onDragEndRaycastHit))
                 {
+                    state.EntityManager.SetComponentEnabled<DragEndWorldPosition>(PointInput, true);
+                    state.EntityManager.SetComponentData(PointInput, new DragEndWorldPosition { Position = onDragEndRaycastHit.Position });
+
                     (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDragEndRaycastHit.Position);
 
-                    if (_currentSelectedEntity != currentPickedTroop)
+                    if (CurrentSelectedEntity != currentPickedTroop)
                     {
-                        if (_currentSelectedEntity == Entity.Null) // currentPickedTroop is not Null
+                        if (CurrentSelectedEntity == Entity.Null) // currentPickedTroop is not Null
                         {
                             state.EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
 
-                            _currentSelectedEntity = currentPickedTroop;
-                            _currentSelectedTeamColor = teamColor;
+                            CurrentSelectedEntity = currentPickedTroop;
+                            CurrentSelectedTeamColor = teamColor;
                         }
                         else
                         {
                             if (currentPickedTroop == Entity.Null) // _currentSelectedEntity is not Null
                             {
-                                if (state.EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
+                                if (state.EntityManager.IsComponentEnabled<DragStartWorldPosition>(PointInput))
                                 {
-                                    state.EntityManager.SetComponentData(_currentSelectedEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
-                                    state.EntityManager.SetComponentData(_currentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
+                                    state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
+                                    state.EntityManager.SetComponentData(CurrentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
 
-                                    state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(_currentSelectedEntity, false);
-                                    state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(_currentSelectedEntity, false);
-                                    state.EntityManager.SetComponentEnabled<TroopStateMoveToDestination>(_currentSelectedEntity, true);
+                                    state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(CurrentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopStateMoveToDestination>(CurrentSelectedEntity, true);
                                 }
 
-                                state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
+                                state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentSelectedEntity, false);
 
-                                _currentSelectedEntity = Entity.Null;
-                                _currentSelectedTeamColor = TeamColor.None;
+                                CurrentSelectedEntity = Entity.Null;
+                                CurrentSelectedTeamColor = TeamColor.None;
                             }
                             else // currentPickedTroop and _currentSelectedEntity are not Null
                             {
-                                if (_currentSelectedTeamColor == teamColor)
+                                if (CurrentSelectedTeamColor == teamColor)
                                 {
-                                    state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentSelectedEntity, false);
                                     state.EntityManager.SetComponentEnabled<TroopSelected>(currentPickedTroop, true);
 
-                                    _currentSelectedEntity = currentPickedTroop;
-                                    _currentSelectedTeamColor = teamColor;
+                                    CurrentSelectedEntity = currentPickedTroop;
+                                    CurrentSelectedTeamColor = teamColor;
                                 }
                                 else
                                 {
-                                    if (state.EntityManager.IsComponentEnabled<DragStartPosition>(s_pointInput))
+                                    if (state.EntityManager.IsComponentEnabled<DragStartWorldPosition>(PointInput))
                                     {
-                                        state.EntityManager.SetComponentData(_currentSelectedEntity, new TroopTargetForAttack { TargetTroop = currentPickedTroop });
+                                        state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopTargetForAttack { TargetTroop = currentPickedTroop });
 
-                                        state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(_currentSelectedEntity, true);
-                                        state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(_currentSelectedEntity, false);
+                                        state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(CurrentSelectedEntity, true);
+                                        state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);
                                     }
 
-                                    state.EntityManager.SetComponentEnabled<TroopSelected>(_currentSelectedEntity, false);
+                                    state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentSelectedEntity, false);
 
-                                    _currentSelectedEntity = Entity.Null;
-                                    _currentSelectedTeamColor = TeamColor.None;
+                                    CurrentSelectedEntity = Entity.Null;
+                                    CurrentSelectedTeamColor = TeamColor.None;
                                 }
                             }
                         }
@@ -241,7 +252,8 @@ namespace War.Dots.Component.ComponentSystem
 #endif
                 }
 
-                state.EntityManager.SetComponentEnabled<DragStartPosition>(s_pointInput, false);
+                state.EntityManager.SetComponentEnabled<DragStartWorldPosition>(PointInput, false);
+                state.EntityManager.SetComponentEnabled<DraggingWorldPosition>(PointInput, false);
             }
         }
 
@@ -249,7 +261,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             if (SystemAPI.HasSingleton<PointInput>())
             {
-                s_pointInput = SystemAPI.GetSingletonEntity<PointInput>();
+                PointInput = SystemAPI.GetSingletonEntity<PointInput>();
             }
         }
 

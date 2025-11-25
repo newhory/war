@@ -2006,7 +2006,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &689530423
 Transform:
   m_ObjectHideFlags: 0
@@ -2505,7 +2505,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &829223736
 Transform:
   m_ObjectHideFlags: 0
@@ -3247,6 +3247,9 @@ MonoBehaviour:
   miterLimit: 4
   samplesPerUnit: 8
   height: 0.5
+  dragLinePrefab: {fileID: 5982260434409991591, guid: 2da7fe7634324584e8de578ac0f2c539,
+    type: 3}
+  dragHeadMaterial: {fileID: 2100000, guid: 5cf1068a07d3f114b9122d56f950dade, type: 2}
 --- !u!114 &1081584494
 MonoBehaviour:
   m_ObjectHideFlags: 0
