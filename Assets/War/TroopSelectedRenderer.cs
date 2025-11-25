@@ -16,8 +16,8 @@ namespace War
 
     public class TroopSelectedRenderer : MonoBehaviour
     {
-        [Header(nameof(LineRenderer))]
-        [SerializeField] private LineRenderer lineRendererPrefab;
+        [Header(nameof(LineRenderer))] [SerializeField]
+        private LineRenderer lineRendererPrefab;
 
         [SerializeField] private float widthMultiplier = 0.05f;
         [SerializeField] private int numCapVertices = 8;
@@ -25,16 +25,15 @@ namespace War
         [SerializeField] private Color redTeamColor = Color.red;
         [SerializeField] private Color blueTeamColor = Color.blue;
 
-        [Header("Outline Padding")]
-        [SerializeField] private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+        [Header("Outline Padding")] [SerializeField]
+        private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
 
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
 
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
         [SerializeField] private float height = 0.05f; // 지면 Y offset
 
-        [Header("Drag Line")]
-        [SerializeField] private GameObject dragLinePrefab;
+        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
         [SerializeField] private Material dragHeadMaterial;
         [SerializeField] private float dragHeadSideLength = 1f;
 
@@ -43,7 +42,7 @@ namespace War
         {
             public SplineContainer SplineContainer;
             public LineRenderer LineRenderer;
-            public Vector3[] SampledPositions;
+            public float2[] SampledPositions;
             public Vector3 TroopPosition;
         }
 
@@ -206,6 +205,7 @@ namespace War
 
                     // 3) 각 정점에 대해 vertex normal 계산 -> outward 보정 -> padding 적용
                     float3[] knotArray = new float3[n];
+                    float2[] sampledPositions = new float2[n];
                     for (int j = 0; j < n; ++j)
                     {
                         float2 prev = hull[(j - 1 + n) % n];
@@ -254,6 +254,7 @@ namespace War
                         float2 padded = curr + vnormal * appliedOffset;
 
                         knotArray[j] = new float3(padded.x, height, padded.y);
+                        sampledPositions[j] = padded;
                     }
 
                     hull.Dispose();
@@ -270,6 +271,7 @@ namespace War
                     activeTroopVisual.SplineContainer ??= _splineContainerPool.Get();
                     activeTroopVisual.TroopPosition = selectedTroopAABB[i].Center.xxy;
                     activeTroopVisual.TroopPosition.y = height;
+                    activeTroopVisual.SampledPositions = sampledPositions;
 
                     // build spline (closed loop)
                     Spline spline = new(knotArray.Length, closed: true);
@@ -299,8 +301,6 @@ namespace War
                     activeTroopVisual.LineRenderer.positionCount = positions.Length;
                     activeTroopVisual.LineRenderer.SetPositions(positions);
 
-                    activeTroopVisual.SampledPositions = positions;
-
                     Color teamColor = selectedTroopTeam.Color == TeamColor.Red ? redTeamColor : blueTeamColor;
 
                     activeTroopVisual.LineRenderer.startColor = teamColor;
@@ -315,35 +315,77 @@ namespace War
             {
                 Vector3 dragStartPosition = currentActiveTroopVisual.TroopPosition;
                 dragStartPosition.y = height;
-                
+
                 Vector3 draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(BattleInputSystem.PointInput).Position;
                 draggingPosition.y = height;
-                
+
                 // todo : calc dragStartPosition for cull drag line
-                
-                Transform dragLineTransform = _dragLine.transform;
+                float2 draggingPosition2D = new(draggingPosition.x, draggingPosition.z);
+                if (IsPointInPolygon(draggingPosition2D, currentActiveTroopVisual.SampledPositions))
+                {
+                    _dragLine.SetActive(false);
+                    _dragHead.SetActive(false);
+                }
+                else
+                {
+                #region find intersection point between drag line and troop hull polygon
 
-                dragLineTransform.position = dragStartPosition;
-                
-                Vector3 dragLineScale = dragLineTransform.localScale;
-                float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * dragHeadSideLength;
-                dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
-                dragLineTransform.localScale = dragLineScale;
-                
-                Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
-                dragLineTransform.forward = dragDirection;
+                    float2 dragStartPosition2D = new(dragStartPosition.x, dragStartPosition.z);
 
-                _dragLineMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
+                    // precise check: segment A->B against each polygon edge
+                    bool foundThis = false;
+                    float bestTThis = float.MaxValue;
+                    Vector2 bestPtThis = default;
 
-                _dragLine.SetActive(true);
+                    int vertexCount = currentActiveTroopVisual.SampledPositions.Length;
+                    for (int j = 0; j < vertexCount; ++j)
+                    {
+                        Vector2 C = currentActiveTroopVisual.SampledPositions[j];
+                        Vector2 D = currentActiveTroopVisual.SampledPositions[(j + 1) % vertexCount];
 
-                Transform dragHeadTransform = _dragHead.transform;
-                dragHeadTransform.position = draggingPosition - dragDirection * dragHeadHeight;
-                dragHeadTransform.forward = dragDirection;
+                        if (SegmentSegmentIntersection2D(dragStartPosition2D, draggingPosition2D, C, D, out float2 inter, out float tOnAB))
+                        {
+                            // choose earliest intersection along A->B (smallest t)
+                            if (tOnAB >= 0f && tOnAB <= 1f && tOnAB < bestTThis)
+                            {
+                                bestTThis = tOnAB;
+                                bestPtThis = inter;
+                                foundThis = true;
+                            }
+                        }
+                    }
 
-                _dragHeadMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
+                    if (foundThis)
+                    {
+                        dragStartPosition = new Vector3(bestPtThis.x, dragStartPosition.y, bestPtThis.y);
+                    }
 
-                _dragHead.SetActive(true);
+                #endregion
+
+                    Transform dragLineTransform = _dragLine.transform;
+
+                    dragLineTransform.position = dragStartPosition;
+
+                    Vector3 dragLineScale = dragLineTransform.localScale;
+                    float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * dragHeadSideLength;
+                    dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
+                    dragLineTransform.localScale = dragLineScale;
+
+                    Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
+                    dragLineTransform.forward = dragDirection;
+
+                    _dragLineMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
+
+                    _dragLine.SetActive(true);
+
+                    Transform dragHeadTransform = _dragHead.transform;
+                    dragHeadTransform.position = draggingPosition - dragDirection * dragHeadHeight;
+                    dragHeadTransform.forward = dragDirection;
+
+                    _dragHeadMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
+
+                    _dragHead.SetActive(true);
+                }
             }
             else
             {
@@ -383,6 +425,87 @@ namespace War
             }
 
             return s;
+        }
+
+        // segment (A->B) vs segment (C->D) intersection on 2D XZ; returns intersection point and t along AB (0..1).
+        private static bool SegmentSegmentIntersection2D(float2 A, float2 B, float2 C, float2 D, out float2 intersection, out float tOnAB)
+        {
+            intersection = default;
+            tOnAB = 0f;
+
+            float r_x = B.x - A.x;
+            float r_y = B.y - A.y;
+            float s_x = D.x - C.x;
+            float s_y = D.y - C.y;
+
+            float rxs = r_x * s_y - r_y * s_x;
+            if (math.abs(rxs) < 1e-8f) return false; // parallel or nearly so
+
+            float cma_x = C.x - A.x;
+            float cma_y = C.y - A.y;
+
+            float t = (cma_x * s_y - cma_y * s_x) / rxs;
+            float u = (cma_x * r_y - cma_y * r_x) / rxs;
+
+            if (t >= 0f && t <= 1f && u >= 0f && u <= 1f)
+            {
+                intersection = new float2(A.x + t * r_x, A.y + t * r_y);
+                tOnAB = t;
+                return true;
+            }
+
+            return false;
+        }
+
+        // Winding/odd-even test: check if 2D point is inside polygon (polygon in world XZ given)
+        private static bool IsPointInPolygon(float2 point, float2[] polygonInWorld)
+        {
+            int vertexCount = polygonInWorld.Length;
+
+            bool isInside = false;
+            for (int i = 0, j = vertexCount - 1; i < vertexCount; j = i++)
+            {
+                float2 a = polygonInWorld[i];
+                float2 b = polygonInWorld[j];
+
+                // check if the point is exactly on edge - treat as inside
+                if (PointOnSegment2D(point, a, b))
+                {
+                    return true;
+                }
+
+                bool intersect =
+                    ((a.y > point.y) != (b.y > point.y)) &&
+                    (point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y + 0f) + a.x);
+
+                if (intersect)
+                {
+                    isInside = !isInside;
+                }
+            }
+
+            return isInside;
+        }
+
+        private static bool PointOnSegment2D(float2 p, float2 a, float2 b, float eps = 1e-6f)
+        {
+            float2 ap = p - a;
+            float2 ab = b - a;
+
+            float cross = ap.x * ab.y - ap.y * ab.x;
+
+            if (math.abs(cross) > eps)
+            {
+                return false;
+            }
+
+            float dot = math.dot(ap, ab);
+            if (dot < -eps)
+            {
+                return false;
+            }
+
+            return !(dot > math.dot(ab, ab) + eps);
         }
     }
 }
