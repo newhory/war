@@ -24,6 +24,13 @@ namespace War.Dots.Component.ComponentSystem
         public static Entity CurrentTargetCandidateEntity { get; private set; }
 
 
+        public static void Reset()
+        {
+            CurrentSelectedEntity = Entity.Null;
+            CurrentSelectedTeamColor = TeamColor.None;
+            CurrentTargetCandidateEntity = Entity.Null;
+        }
+
         [BurstCompile]
         private static bool Cast(PhysicsWorldSingleton physicsWorldSingleton, RaycastInput raycastInput, out RaycastHit raycastHit)
         {
@@ -43,8 +50,8 @@ namespace War.Dots.Component.ComponentSystem
 
             for (int i = 0, j = n - 1; i < n; j = i++)
             {
-                float2 a = troopHullPoints[i].Position.xz;
-                float2 b = troopHullPoints[j].Position.xz;
+                float2 a = troopHullPoints[i].Position;
+                float2 b = troopHullPoints[j].Position;
 
                 bool intersect =
                     a.y > point.y != b.y > point.y &&

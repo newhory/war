@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -6,6 +7,7 @@ using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.Splines;
 using ZLinq;
+using Object = UnityEngine.Object;
 
 
 namespace War
@@ -29,21 +31,129 @@ namespace War
         private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
 
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
-
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
         [SerializeField] private float height = 0.05f; // 지면 Y offset
 
-        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
-        [SerializeField] private float tilingFactor = 0.25f;
-        [SerializeField] private Material dragHeadMaterial;
-        [SerializeField] private float dragHeadSideLength = 1f;
+        [Header("Line")] [SerializeField] private float lineTilingFactor = 0.25f;
+        [SerializeField] private Material lineHeadMaterial;
+        [SerializeField] private float lineHeadSideLength = 1f;
 
+        [Header("Move Line")] [SerializeField] private GameObject moveLinePrefab;
+        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
+
+
+        private class TroopLine : IDisposable
+        {
+            private readonly GameObject _dragLine;
+            private readonly Material _dragLineMaterial;
+            private readonly Transform _dragLineTransform;
+
+            private readonly GameObject _dragHead;
+            private readonly Material _dragHeadMaterial;
+            private readonly Transform _dragHeadTransform;
+            private readonly float _dragHeadSideLength;
+
+
+            public TroopLine(GameObject dragLinePrefab, float dragHeadSideLength, Material dragHeadMaterial)
+            {
+                _dragLine = Instantiate(dragLinePrefab);
+                _dragLineMaterial = _dragLine.GetComponentInChildren<Renderer>().material;
+                _dragLineTransform = _dragLine.transform;
+                _dragLine.SetActive(false);
+
+                _dragHead = new GameObject("TroopDragHead");
+                _dragHeadTransform = _dragHead.transform;
+
+                _dragHeadSideLength = dragHeadSideLength;
+
+                GameObject dragHeadMeshObject = new("TroopDragHeadMesh");
+                Transform dragHeadMeshTransform = dragHeadMeshObject.transform;
+                dragHeadMeshTransform.SetParent(_dragHead.transform);
+                dragHeadMeshTransform.localRotation = Quaternion.Euler(90f, 0, 0);
+
+                MeshFilter dragHeadMeshFilter = dragHeadMeshObject.AddComponent<MeshFilter>();
+                MeshRenderer dragHeadMeshRenderer = dragHeadMeshObject.AddComponent<MeshRenderer>();
+
+                Mesh mesh = new();
+
+                // 정삼각형의 높이 (피타고라스)
+                float headHeight = Mathf.Sqrt(3f) * 0.5f * _dragHeadSideLength;
+
+                // 정삼각형 정점 좌표 (2D 평면에 배치)
+                mesh.vertices = new Vector3[]
+                {
+                    new(-_dragHeadSideLength * 0.5f, 0, 0), // 왼쪽 아래
+                    new(_dragHeadSideLength * 0.5f, 0, 0), // 오른쪽 아래
+                    new(0, headHeight, 0) // 위쪽 꼭짓점
+                };
+
+                // 삼각형 인덱스
+                mesh.triangles = new[] { 0, 1, 2 };
+
+                // UV 좌표 (텍스처 매핑용)
+                mesh.uv = new Vector2[]
+                {
+                    new(0, 0),
+                    new(1, 0),
+                    new(0.5f, 1)
+                };
+
+                mesh.RecalculateNormals();
+
+                dragHeadMeshFilter.mesh = mesh;
+                dragHeadMeshRenderer.sharedMaterial = dragHeadMaterial;
+                dragHeadMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+                _dragHeadMaterial = dragHeadMeshRenderer.material;
+
+                _dragHead.SetActive(false);
+            }
+
+
+            public void Draw(Vector3 dragStartPosition, Vector3 draggingPosition, Color color, float tilingFactor = 1f)
+            {
+                _dragLineTransform.position = dragStartPosition;
+
+                Vector3 dragLineScale = _dragLineTransform.localScale;
+                float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * _dragHeadSideLength;
+                dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
+                _dragLineTransform.localScale = dragLineScale;
+
+                Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
+                _dragLineTransform.forward = dragDirection;
+
+                _dragLineMaterial.color = color;
+                _dragLineMaterial.mainTextureScale = new Vector2(dragLineScale.z * tilingFactor, 1f);
+
+                _dragLine.SetActive(true);
+
+                _dragHeadTransform.position = draggingPosition - dragDirection * dragHeadHeight;
+                _dragHeadTransform.forward = dragDirection;
+
+                _dragHeadMaterial.color = color;
+
+                _dragHead.SetActive(true);
+            }
+
+            public void Hide()
+            {
+                _dragLine.SetActive(false);
+                _dragHead.SetActive(false);
+            }
+
+            public void Dispose()
+            {
+                Destroy(_dragLine);
+                Destroy(_dragHead);
+            }
+        }
 
         private class ActiveTroopVisual
         {
             public SplineContainer SplineContainer;
             public LineRenderer LineRenderer;
-            public float2[] SampledPositions;
+            public TroopLine TroopLine;
+            public NativeArray<float2> SampledPositions;
             public Vector3 TroopPosition;
         }
 
@@ -51,8 +161,10 @@ namespace War
 
         private ObjectPool<LineRenderer> _lineRendererPool;
         private ObjectPool<SplineContainer> _splineContainerPool;
+        private ObjectPool<TroopLine> _troopLinePool;
         private Dictionary<Entity, ActiveTroopVisual> _activeSelectedTroops;
 
+        private TroopLine _dragTroopLine;
         private GameObject _dragLine;
         private Material _dragLineMaterial;
         private GameObject _dragHead;
@@ -91,55 +203,17 @@ namespace War
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 1);
 
+            _troopLinePool =
+                new ObjectPool<TroopLine>(
+                    createFunc: () => new TroopLine(moveLinePrefab, lineHeadSideLength, lineHeadMaterial),
+                    actionOnRelease: line => line.Hide(),
+                    actionOnDestroy: line => line.Dispose(),
+                    collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
+                    defaultCapacity: 1);
+
             _activeSelectedTroops = new Dictionary<Entity, ActiveTroopVisual>();
 
-            _dragLine = Instantiate(dragLinePrefab);
-            _dragLineMaterial = _dragLine.GetComponentInChildren<Renderer>().material;
-            _dragLine.SetActive(false);
-
-            _dragHead = new GameObject("TroopDragHead");
-
-            GameObject dragHeadMeshObject = new("TroopDragHeadMesh");
-            Transform dragHeadMeshTransform = dragHeadMeshObject.transform;
-            dragHeadMeshTransform.SetParent(_dragHead.transform);
-            dragHeadMeshTransform.localRotation = Quaternion.Euler(90f, 0, 0);
-
-            MeshFilter dragHeadMeshFilter = dragHeadMeshObject.AddComponent<MeshFilter>();
-            MeshRenderer dragHeadMeshRenderer = dragHeadMeshObject.AddComponent<MeshRenderer>();
-
-            Mesh mesh = new();
-
-            // 정삼각형의 높이 (피타고라스)
-            float headHeight = Mathf.Sqrt(3f) * 0.5f * dragHeadSideLength;
-
-            // 정삼각형 정점 좌표 (2D 평면에 배치)
-            mesh.vertices = new Vector3[]
-            {
-                new(-dragHeadSideLength * 0.5f, 0, 0), // 왼쪽 아래
-                new(dragHeadSideLength * 0.5f, 0, 0), // 오른쪽 아래
-                new(0, headHeight, 0) // 위쪽 꼭짓점
-            };
-
-            // 삼각형 인덱스
-            mesh.triangles = new[] { 0, 1, 2 };
-
-            // UV 좌표 (텍스처 매핑용)
-            mesh.uv = new Vector2[]
-            {
-                new(0, 0),
-                new(1, 0),
-                new(0.5f, 1)
-            };
-
-            mesh.RecalculateNormals();
-
-            dragHeadMeshFilter.mesh = mesh;
-            dragHeadMeshRenderer.sharedMaterial = dragHeadMaterial;
-            dragHeadMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-
-            _dragHeadMaterial = dragHeadMeshRenderer.material;
-
-            _dragHead.SetActive(false);
+            _dragTroopLine = new TroopLine(dragLinePrefab, lineHeadSideLength, lineHeadMaterial);
         }
 
         private void Update()
@@ -156,155 +230,33 @@ namespace War
 
             if (!selectedTroopQuery.IsEmpty)
             {
-                using NativeArray<Entity> selectedTroopEntities = selectedTroopQuery.ToEntityArray(Allocator.Temp);
-                using NativeArray<TroopAABB> selectedTroopAABB = selectedTroopQuery.ToComponentDataArray<TroopAABB>(Allocator.Temp);
+                using NativeArray<Entity> currentSelectedTroops = selectedTroopQuery.ToEntityArray(Allocator.Temp);
+                using NativeHashSet<Entity> selectedTroopEntities = new(currentSelectedTroops.Length, Allocator.Temp);
 
-                foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
+                for (int i = 0, count = currentSelectedTroops.Length; i < count; ++i)
                 {
-                    if (!selectedTroopEntities.AsValueEnumerable().Any(entity => entity == currentSelectedEntity))
+                    Entity selectedTroopEntity = currentSelectedTroops[i];
+
+                    SelectTroop(selectedTroopEntity);
+
+                    selectedTroopEntities.Add(selectedTroopEntity);
+
+                    TroopTargetForAttack targetForAttack = _entityManager.GetComponentData<TroopTargetForAttack>(selectedTroopEntity);
+                    if (targetForAttack.TargetTroop != Entity.Null && _entityManager.Exists(targetForAttack.TargetTroop) &&
+                        _entityManager.IsComponentEnabled<TroopStateMoveToTarget>(selectedTroopEntity))
                     {
-                        unselectedTroopEntities.Add(currentSelectedEntity);
+                        SelectTroop(targetForAttack.TargetTroop);
+
+                        selectedTroopEntities.Add(targetForAttack.TargetTroop);
                     }
                 }
 
-                using NativeArray<Team> selectedTroopTeams = selectedTroopQuery.ToComponentDataArray<Team>(Allocator.Temp);
-
-                for (int i = 0, count = selectedTroopEntities.Length; i < count; ++i)
+                foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
                 {
-                    Entity selectedTroopEntity = selectedTroopEntities[i];
-                    Team selectedTroopTeam = selectedTroopTeams[i];
-
-                    DynamicBuffer<TroopHullPoint> troopHullPoints = _entityManager.GetBuffer<TroopHullPoint>(selectedTroopEntity);
-
-                    if (troopHullPoints.Length < 2)
+                    if (!selectedTroopEntities.Contains(currentSelectedEntity))
                     {
-                        RestoreTroopSelected(selectedTroopEntity);
-
-                        continue;
+                        unselectedTroopEntities.Add(currentSelectedEntity);
                     }
-
-                    // 1) hull 점들을 float2 리스트로 수집 (XZ)
-                    int n = troopHullPoints.Length;
-                    NativeArray<float2> hull = new(n, Allocator.Temp);
-                    for (int j = 0; j < n; ++j)
-                    {
-                        hull[j] = troopHullPoints[j].Position;
-                    }
-
-                    // 2) centroid 계산 (노멀 방향 판정용)
-                    float2 centroid = float2.zero;
-                    for (int j = 0; j < n; ++j)
-                    {
-                        centroid += hull[j];
-                    }
-
-                    centroid /= n;
-
-                    // 3) 각 정점에 대해 vertex normal 계산 -> outward 보정 -> padding 적용
-                    float3[] knotArray = new float3[n];
-                    float2[] sampledPositions = new float2[n];
-                    for (int j = 0; j < n; ++j)
-                    {
-                        float2 prev = hull[(j - 1 + n) % n];
-                        float2 curr = hull[j];
-                        float2 next = hull[(j + 1) % n];
-
-                        float2 dir1 = math.normalize(curr - prev);
-                        float2 dir2 = math.normalize(next - curr);
-
-                        // 각 에지의 외측(perpendicular). 회전방식은 ( -y, x ) 또는 ( y, -x ) 중 하나.
-                        // 두 perpendicular을 합쳐 vertex normal을 구함
-                        float2 n1 = new(-dir1.y, dir1.x);
-                        float2 n2 = new(-dir2.y, dir2.x);
-
-                        float2 vnormal = n1 + n2;
-                        float vlen = math.length(vnormal);
-
-                        if (vlen < 1e-4f)
-                        {
-                            // 거의 평행(혹은 수치 문제)일 땐 현재 엣지의 perpendicular 사용
-                            vnormal = new float2(-dir1.y, dir1.x);
-                            vlen = math.length(vnormal);
-                            if (vlen < 1e-4f)
-                            {
-                                vnormal = new float2(-dir2.y, dir2.x);
-                                vlen = math.length(vnormal);
-                            }
-                        }
-
-                        vnormal /= vlen; // 정규화
-
-                        // 보정: centroid 방향과 같은 쪽인지 확인. 아니라면 뒤집음(바깥쪽을 향하게)
-                        float2 fromCentroid = curr - centroid;
-                        if (math.dot(vnormal, fromCentroid) < 0f)
-                        {
-                            vnormal = -vnormal;
-                        }
-
-                        // miter limit: 지나치게 길어지는 경우 clamp (optional 안전장치)
-                        float appliedOffset = padding;
-                        // 간단한 miter limit: (padding * miterLimit) 를 초과하면 clamp
-                        // (여기선 vertex normal이 극단적이면 큰 이동 발생 가능 -> 제한)
-                        float maxOffset = padding * miterLimit;
-                        if (math.abs(appliedOffset) > maxOffset)
-                        {
-                            appliedOffset = math.sign(appliedOffset) * maxOffset;
-                        }
-
-                        float2 padded = curr + vnormal * appliedOffset;
-
-                        knotArray[j] = new float3(padded.x, height, padded.y);
-                        sampledPositions[j] = padded;
-                    }
-
-                    hull.Dispose();
-
-                    // get or create SplineContainer
-                    if (!_activeSelectedTroops.TryGetValue(selectedTroopEntity, out ActiveTroopVisual activeTroopVisual))
-                    {
-                        activeTroopVisual = new ActiveTroopVisual();
-
-                        _activeSelectedTroops[selectedTroopEntity] = activeTroopVisual;
-                    }
-
-                    activeTroopVisual.LineRenderer ??= _lineRendererPool.Get();
-                    activeTroopVisual.SplineContainer ??= _splineContainerPool.Get();
-                    activeTroopVisual.TroopPosition = selectedTroopAABB[i].Center.xxy;
-                    activeTroopVisual.TroopPosition.y = height;
-                    activeTroopVisual.SampledPositions = sampledPositions;
-
-                    // build spline (closed loop)
-                    Spline spline = new(knotArray.Length, closed: true);
-                    spline.AddRange(knotArray); // API supports AddRange(float3[])
-                    activeTroopVisual.SplineContainer.Spline = spline;
-
-                    // Optional: tweak tangents/tension for Catmull-Rom feel
-                    // SplineUtility provides helpers (you can set tangent modes or call smoothing ops if needed)
-
-                    // compute approximate spline length (or rely on points count), then sample positions
-                    float approxLength = EstimateApproxLength(knotArray);
-                    int totalSamples = math.max(4, (int)(approxLength * samplesPerUnit));
-
-                    Vector3[] positions = new Vector3[totalSamples + 1];
-                    for (int j = 0; j <= totalSamples; ++j)
-                    {
-                        float t = j / (float)totalSamples;
-
-                        // EvaluatePosition returns a local position; container.TransformPoint -> world
-                        float3 localPos = activeTroopVisual.SplineContainer.Spline.EvaluatePosition(t);
-                        Vector3 worldPos = activeTroopVisual.SplineContainer.transform.TransformPoint(new Vector3(localPos.x, localPos.y, localPos.z));
-
-                        positions[j] = worldPos;
-                    }
-
-                    // assign to LineRenderer
-                    activeTroopVisual.LineRenderer.positionCount = positions.Length;
-                    activeTroopVisual.LineRenderer.SetPositions(positions);
-
-                    Color teamColor = selectedTroopTeam.Color == TeamColor.Red ? redTeamColor : blueTeamColor;
-
-                    activeTroopVisual.LineRenderer.startColor = teamColor;
-                    activeTroopVisual.LineRenderer.endColor = teamColor;
                 }
             }
             else
@@ -320,96 +272,54 @@ namespace War
                 RestoreTroopSelected(unselectedEntity);
             }
 
+            foreach (Entity selectedTroopEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
+            {
+                ActiveTroopVisual currentSelectedTroopVisual = _activeSelectedTroops[selectedTroopEntity];
+
+                TroopTargetForAttack targetForAttack = _entityManager.GetComponentData<TroopTargetForAttack>(selectedTroopEntity);
+                if (_activeSelectedTroops.TryGetValue(targetForAttack.TargetTroop, out ActiveTroopVisual targetTroopVisual))
+                {
+                    currentSelectedTroopVisual.TroopLine ??= _troopLinePool.Get();
+
+                    DrawTroopLine(currentSelectedTroopVisual.TroopLine, targetTroopVisual.TroopPosition, currentSelectedTroopVisual, targetTroopVisual);
+                }
+                else
+                {
+                    Destination destination = _entityManager.GetComponentData<Destination>(selectedTroopEntity);
+                    Vector3 destinationPosition = destination.Position;
+                    destinationPosition.y = height;
+
+                    currentSelectedTroopVisual.TroopLine ??= _troopLinePool.Get();
+
+                    DrawTroopLine(currentSelectedTroopVisual.TroopLine, destinationPosition, currentSelectedTroopVisual, null);
+                }
+            }
+
             if (BattleInputSystem.CurrentSelectedEntity != Entity.Null &&
                 _activeSelectedTroops.TryGetValue(BattleInputSystem.CurrentSelectedEntity, out ActiveTroopVisual currentActiveTroopVisual) &&
                 _entityManager.IsComponentEnabled<DragStartWorldPosition>(BattleInputSystem.PointInput) &&
                 _entityManager.IsComponentEnabled<DraggingWorldPosition>(BattleInputSystem.PointInput))
             {
-                Vector3 dragStartPosition = currentActiveTroopVisual.TroopPosition;
-                dragStartPosition.y = height;
+                Vector3 draggingPosition;
 
-                Vector3 draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(BattleInputSystem.PointInput).Position;
-                draggingPosition.y = height;
-
-
-                float2 draggingPosition2D = new(draggingPosition.x, draggingPosition.z);
-                if (IsPointInPolygon(draggingPosition2D, currentActiveTroopVisual.SampledPositions))
+                if (BattleInputSystem.CurrentTargetCandidateEntity != Entity.Null &&
+                    _activeSelectedTroops.TryGetValue(BattleInputSystem.CurrentTargetCandidateEntity, out ActiveTroopVisual currentTargetCandidateActiveTroopVisual))
                 {
-                    _dragLine.SetActive(false);
-                    _dragHead.SetActive(false);
+                    draggingPosition = currentTargetCandidateActiveTroopVisual.TroopPosition;
                 }
                 else
                 {
-                    float2 dragStartPosition2D = new(dragStartPosition.x, dragStartPosition.z);
-
-                #region calc dragStartPosition2D for cull drag line
-
-                    bool isFound = false;
-                    float minRateOnDragLine = float.MaxValue;
-                    float2 bestIntersectionPoint = default;
-
-                    int vertexCount = currentActiveTroopVisual.LineRenderer.positionCount;
-                    using NativeArray<Vector3> vertices = new(vertexCount, Allocator.Temp);
-                    currentActiveTroopVisual.LineRenderer.GetPositions(vertices);
-
-                    for (int i = 0; i < vertexCount; ++i)
-                    {
-                        Vector3 vertex13d = vertices[i];
-                        Vector3 vertex23d = vertices[(i + 1) % vertexCount];
-
-                        float2 vertex1 = new(vertex13d.x, vertex13d.z);
-                        float2 vertex2 = new(vertex23d.x, vertex23d.z);
-
-                        if (IntersectionSegments(dragStartPosition2D, draggingPosition2D, vertex1, vertex2, out float2 inter, out float rateOnDragLine))
-                        {
-                            // choose the earliest intersection along A->B (smallest t)
-                            if (rateOnDragLine is >= 0f and <= 1f && rateOnDragLine < minRateOnDragLine)
-                            {
-                                isFound = true;
-
-                                minRateOnDragLine = rateOnDragLine;
-                                bestIntersectionPoint = inter;
-                            }
-                        }
-                    }
-
-                    if (isFound)
-                    {
-                        dragStartPosition = new Vector3(bestIntersectionPoint.x, dragStartPosition.y, bestIntersectionPoint.y);
-                    }
-
-                #endregion
-
-                    Transform dragLineTransform = _dragLine.transform;
-
-                    dragLineTransform.position = dragStartPosition;
-
-                    Vector3 dragLineScale = dragLineTransform.localScale;
-                    float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * dragHeadSideLength;
-                    dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
-                    dragLineTransform.localScale = dragLineScale;
-
-                    Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
-                    dragLineTransform.forward = dragDirection;
-
-                    _dragLineMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
-                    _dragLineMaterial.mainTextureScale = new Vector2(dragLineScale.z * tilingFactor, 1f);
-
-                    _dragLine.SetActive(true);
-
-                    Transform dragHeadTransform = _dragHead.transform;
-                    dragHeadTransform.position = draggingPosition - dragDirection * dragHeadHeight;
-                    dragHeadTransform.forward = dragDirection;
-
-                    _dragHeadMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
-
-                    _dragHead.SetActive(true);
+                    currentTargetCandidateActiveTroopVisual = null;
+                    draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(BattleInputSystem.PointInput).Position;
                 }
+
+                draggingPosition.y = height;
+
+                DrawTroopLine(_dragTroopLine, draggingPosition, currentActiveTroopVisual, currentTargetCandidateActiveTroopVisual);
             }
             else
             {
-                _dragLine.SetActive(false);
-                _dragHead.SetActive(false);
+                _dragTroopLine.Hide();
             }
         }
 
@@ -430,10 +340,203 @@ namespace War
                 _splineContainerPool.Release(activeTroopVisual.SplineContainer);
             }
 
+            if (activeTroopVisual.TroopLine is not null)
+            {
+                _troopLinePool.Release(activeTroopVisual.TroopLine);
+            }
+
+            if (activeTroopVisual.SampledPositions.IsCreated)
+            {
+                activeTroopVisual.SampledPositions.Dispose();
+            }
+
             _activeSelectedTroops.Remove(troopEntity);
         }
 
-        private static float EstimateApproxLength(float3[] pts)
+        private void SelectTroop(Entity selectedTroopEntity)
+        {
+            Team selectedTroopTeam = _entityManager.GetComponentData<Team>(selectedTroopEntity);
+            DynamicBuffer<TroopHullPoint> troopHullPoints = _entityManager.GetBuffer<TroopHullPoint>(selectedTroopEntity);
+
+            int hullPointCount = troopHullPoints.Length;
+
+            if (hullPointCount < 2)
+            {
+                RestoreTroopSelected(selectedTroopEntity);
+
+                return;
+            }
+
+            TroopAABB selectedTroopAABB = _entityManager.GetComponentData<TroopAABB>(selectedTroopEntity);
+
+            // get or create SplineContainer
+            if (!_activeSelectedTroops.TryGetValue(selectedTroopEntity, out ActiveTroopVisual activeTroopVisual))
+            {
+                activeTroopVisual = new ActiveTroopVisual();
+
+                _activeSelectedTroops[selectedTroopEntity] = activeTroopVisual;
+            }
+
+            // 1) hull 점들을 float2 리스트로 수집 (XZ)
+            NativeArray<float2> hull = new(hullPointCount, Allocator.Temp);
+            for (int j = 0; j < hullPointCount; ++j)
+            {
+                hull[j] = troopHullPoints[j].Position;
+            }
+
+            // 2) centroid 계산 (노멀 방향 판정용)
+            float2 centroid = float2.zero;
+            for (int j = 0; j < hullPointCount; ++j)
+            {
+                centroid += hull[j];
+            }
+
+            centroid /= hullPointCount;
+
+            // 3) 각 정점에 대해 vertex normal 계산 -> outward 보정 -> padding 적용
+            NativeArray<float3> knotArray = new(hullPointCount, Allocator.Temp);
+            NativeArray<float2> sampledPositions = activeTroopVisual.SampledPositions = new NativeArray<float2>(hullPointCount, Allocator.Domain);
+
+            for (int j = 0; j < hullPointCount; ++j)
+            {
+                float2 prev = hull[(j - 1 + hullPointCount) % hullPointCount];
+                float2 curr = hull[j];
+                float2 next = hull[(j + 1) % hullPointCount];
+
+                float2 dir1 = math.normalize(curr - prev);
+                float2 dir2 = math.normalize(next - curr);
+
+                // 각 에지의 외측(perpendicular). 회전방식은 ( -y, x ) 또는 ( y, -x ) 중 하나.
+                // 두 perpendicular을 합쳐 vertex normal을 구함
+                float2 n1 = new(-dir1.y, dir1.x);
+                float2 n2 = new(-dir2.y, dir2.x);
+
+                float2 vnormal = n1 + n2;
+                float vlen = math.length(vnormal);
+
+                if (vlen < 1e-4f)
+                {
+                    // 거의 평행(혹은 수치 문제)일 땐 현재 엣지의 perpendicular 사용
+                    vnormal = new float2(-dir1.y, dir1.x);
+                    vlen = math.length(vnormal);
+                    if (vlen < 1e-4f)
+                    {
+                        vnormal = new float2(-dir2.y, dir2.x);
+                        vlen = math.length(vnormal);
+                    }
+                }
+
+                vnormal /= vlen; // 정규화
+
+                // 보정: centroid 방향과 같은 쪽인지 확인. 아니라면 뒤집음(바깥쪽을 향하게)
+                float2 fromCentroid = curr - centroid;
+                if (math.dot(vnormal, fromCentroid) < 0f)
+                {
+                    vnormal = -vnormal;
+                }
+
+                // miter limit: 지나치게 길어지는 경우 clamp (optional 안전장치)
+                float appliedOffset = padding;
+                // 간단한 miter limit: (padding * miterLimit) 를 초과하면 clamp
+                // (여기선 vertex normal이 극단적이면 큰 이동 발생 가능 -> 제한)
+                float maxOffset = padding * miterLimit;
+                if (math.abs(appliedOffset) > maxOffset)
+                {
+                    appliedOffset = math.sign(appliedOffset) * maxOffset;
+                }
+
+                float2 padded = curr + vnormal * appliedOffset;
+
+                knotArray[j] = new float3(padded.x, height, padded.y);
+                sampledPositions[j] = padded;
+            }
+
+            activeTroopVisual.LineRenderer ??= _lineRendererPool.Get();
+            activeTroopVisual.SplineContainer ??= _splineContainerPool.Get();
+            activeTroopVisual.TroopPosition = selectedTroopAABB.Center.xxy;
+            activeTroopVisual.TroopPosition.y = height;
+
+            // build spline (closed loop)
+            Spline spline = new(knotArray.Length, closed: true);
+            foreach (float3 knot in knotArray)
+            {
+                spline.Add(knot);
+            }
+
+            activeTroopVisual.SplineContainer.Spline = spline;
+
+            // Optional: tweak tangents/tension for Catmull-Rom feel
+            // SplineUtility provides helpers (you can set tangent modes or call smoothing ops if needed)
+
+            // compute approximate spline length (or rely on points count), then sample positions
+            float approxLength = EstimateApproxLength(knotArray.AsReadOnly());
+            int totalSamples = math.max(4, (int)(approxLength * samplesPerUnit));
+
+            NativeArray<Vector3> positions = new(totalSamples + 1, Allocator.Temp);
+            for (int j = 0; j <= totalSamples; ++j)
+            {
+                float t = j / (float)totalSamples;
+
+                // EvaluatePosition returns a local position; container.TransformPoint -> world
+                float3 localPos = activeTroopVisual.SplineContainer.Spline.EvaluatePosition(t);
+                Vector3 worldPos = activeTroopVisual.SplineContainer.transform.TransformPoint(new Vector3(localPos.x, localPos.y, localPos.z));
+
+                positions[j] = worldPos;
+            }
+
+            // assign to LineRenderer
+            activeTroopVisual.LineRenderer.positionCount = positions.Length;
+            activeTroopVisual.LineRenderer.SetPositions(positions);
+
+            Color teamColor = selectedTroopTeam.Color == TeamColor.Red ? redTeamColor : blueTeamColor;
+
+            activeTroopVisual.LineRenderer.startColor = teamColor;
+            activeTroopVisual.LineRenderer.endColor = teamColor;
+
+            positions.Dispose();
+            knotArray.Dispose();
+            hull.Dispose();
+        }
+
+        private void DrawTroopLine(TroopLine troopLine, Vector3 endPosition, ActiveTroopVisual troopVisual, ActiveTroopVisual targetTroopVisual)
+        {
+            Vector3 startPosition = troopVisual.TroopPosition;
+
+            float2 endPosition2D = new(endPosition.x, endPosition.z);
+            if (IsPointInPolygon(endPosition2D, troopVisual.SampledPositions.AsReadOnly()))
+            {
+                troopLine.Hide();
+            }
+            else
+            {
+                float2 startPosition2D = new(startPosition.x, startPosition.z);
+
+                int vertexCount = troopVisual.LineRenderer.positionCount;
+                using NativeArray<Vector3> vertices = new(vertexCount, Allocator.Temp);
+                troopVisual.LineRenderer.GetPositions(vertices);
+
+                if (TryGetIntersectionPoint(startPosition2D, endPosition2D, vertices, out float2 startIntersectionPoint))
+                {
+                    startPosition = new Vector3(startIntersectionPoint.x, startPosition.y, startIntersectionPoint.y);
+                }
+
+                if (targetTroopVisual is not null)
+                {
+                    int currentTargetVertexCount = targetTroopVisual.LineRenderer.positionCount;
+                    using NativeArray<Vector3> currentTargetVertices = new(currentTargetVertexCount, Allocator.Temp);
+                    targetTroopVisual.LineRenderer.GetPositions(currentTargetVertices);
+
+                    if (TryGetIntersectionPoint(endPosition2D, startPosition2D, currentTargetVertices, out float2 endIntersectionPoint))
+                    {
+                        endPosition = new Vector3(endIntersectionPoint.x, endPosition.y, endIntersectionPoint.y);
+                    }
+                }
+
+                troopLine.Draw(startPosition, endPosition, troopVisual.LineRenderer.startColor, lineTilingFactor);
+            }
+        }
+
+        private static float EstimateApproxLength(NativeArray<float3>.ReadOnly pts)
         {
             float s = 0;
             for (int i = 0; i < pts.Length; ++i)
@@ -444,6 +547,38 @@ namespace War
             }
 
             return s;
+        }
+
+        private static bool TryGetIntersectionPoint(float2 pointA, float2 pointB, NativeArray<Vector3> vertices, out float2 bestIntersectionPoint)
+        {
+            bool isFound = false;
+            float minRateOnDragLine = float.MaxValue;
+            bestIntersectionPoint = default;
+
+            int vertexCount = vertices.Length;
+
+            for (int i = 0; i < vertexCount; ++i)
+            {
+                Vector3 vertex13d = vertices[i];
+                Vector3 vertex23d = vertices[(i + 1) % vertexCount];
+
+                float2 vertex1 = new(vertex13d.x, vertex13d.z);
+                float2 vertex2 = new(vertex23d.x, vertex23d.z);
+
+                if (IntersectionSegments(pointA, pointB, vertex1, vertex2, out float2 inter, out float rateOnDragLine))
+                {
+                    // choose the earliest intersection along A->B (smallest t)
+                    if (rateOnDragLine is >= 0f and <= 1f && rateOnDragLine < minRateOnDragLine)
+                    {
+                        isFound = true;
+
+                        minRateOnDragLine = rateOnDragLine;
+                        bestIntersectionPoint = inter;
+                    }
+                }
+            }
+
+            return isFound;
         }
 
         /// <summary>
@@ -487,7 +622,7 @@ namespace War
         }
 
         // Winding/odd-even test: check if 2D point is inside polygon (polygon in world XZ given)
-        private static bool IsPointInPolygon(float2 point, float2[] polygonInWorld)
+        private static bool IsPointInPolygon(float2 point, NativeArray<float2>.ReadOnly polygonInWorld)
         {
             int vertexCount = polygonInWorld.Length;
 

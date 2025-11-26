@@ -3668,11 +3668,13 @@ MonoBehaviour:
   miterLimit: 4
   samplesPerUnit: 8
   height: 0.5
+  lineTilingFactor: 0.25
+  lineHeadMaterial: {fileID: 2100000, guid: 5cf1068a07d3f114b9122d56f950dade, type: 2}
+  lineHeadSideLength: 1
+  moveLinePrefab: {fileID: 5982260434409991591, guid: 2da7fe7634324584e8de578ac0f2c539,
+    type: 3}
   dragLinePrefab: {fileID: 5982260434409991591, guid: d33a6762900c9034982ec75075718d02,
     type: 3}
-  tilingFactor: 0.25
-  dragHeadMaterial: {fileID: 2100000, guid: 5cf1068a07d3f114b9122d56f950dade, type: 2}
-  dragHeadSideLength: 1
 --- !u!114 &1081584494
 MonoBehaviour:
   m_ObjectHideFlags: 0

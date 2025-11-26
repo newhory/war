@@ -56,11 +56,6 @@ namespace War.Dots.Component
         public float Value;
     }
 
-    public struct TargetForAttack : IComponentData
-    {
-        public Entity Target;
-    }
-
     public struct Arrow : IComponentData
     {
         public Entity Shooter;

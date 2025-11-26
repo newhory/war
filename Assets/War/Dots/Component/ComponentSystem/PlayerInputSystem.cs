@@ -144,6 +144,8 @@ namespace War.Dots.Component.ComponentSystem
                 }
 
                 pooledGameObjectEntities.Dispose();
+                
+                BattleInputSystem.Reset();
 
                 EntityManager.DestroyEntity(_allArmyQuery);
 
