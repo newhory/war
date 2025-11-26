@@ -16,24 +16,24 @@ namespace War
 
     public class TroopSelectedRenderer : MonoBehaviour
     {
-        [Header(nameof(LineRenderer))] [SerializeField]
-        private LineRenderer lineRendererPrefab;
-
+        [Header(nameof(LineRenderer))]
+        [SerializeField] private LineRenderer lineRendererPrefab;
         [SerializeField] private float widthMultiplier = 0.05f;
         [SerializeField] private int numCapVertices = 8;
         [SerializeField] private int numCornerVertices = 8;
         [SerializeField] private Color redTeamColor = Color.red;
         [SerializeField] private Color blueTeamColor = Color.blue;
 
-        [Header("Outline Padding")] [SerializeField]
-        private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+        [Header("Outline Padding")]
+        [SerializeField] private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
 
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
 
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
         [SerializeField] private float height = 0.05f; // 지면 Y offset
 
-        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
+        [Header("Drag Line")]
+        [SerializeField] private GameObject dragLinePrefab;
         [SerializeField] private Material dragHeadMaterial;
         [SerializeField] private float dragHeadSideLength = 1f;
 
@@ -134,6 +134,7 @@ namespace War
 
             dragHeadMeshFilter.mesh = mesh;
             dragHeadMeshRenderer.sharedMaterial = dragHeadMaterial;
+            dragHeadMeshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             _dragHeadMaterial = dragHeadMeshRenderer.material;
 
@@ -150,25 +151,21 @@ namespace War
                     typeof(Team),
                     typeof(TroopAABB));
 
-            using NativeArray<Entity> selectedTroopEntities = selectedTroopQuery.ToEntityArray(Allocator.Temp);
-            using NativeArray<TroopAABB> selectedTroopAABB = selectedTroopQuery.ToComponentDataArray<TroopAABB>(Allocator.Temp);
             using NativeList<Entity> unselectedTroopEntities = new(Allocator.Temp);
 
-            foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
+            if (!selectedTroopQuery.IsEmpty)
             {
-                if (!selectedTroopEntities.AsValueEnumerable().Any(entity => entity == currentSelectedEntity))
+                using NativeArray<Entity> selectedTroopEntities = selectedTroopQuery.ToEntityArray(Allocator.Temp);
+                using NativeArray<TroopAABB> selectedTroopAABB = selectedTroopQuery.ToComponentDataArray<TroopAABB>(Allocator.Temp);
+
+                foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
                 {
-                    unselectedTroopEntities.Add(currentSelectedEntity);
+                    if (!selectedTroopEntities.AsValueEnumerable().Any(entity => entity == currentSelectedEntity))
+                    {
+                        unselectedTroopEntities.Add(currentSelectedEntity);
+                    }
                 }
-            }
 
-            foreach (Entity unselectedEntity in unselectedTroopEntities)
-            {
-                RestoreTroopSelected(unselectedEntity);
-            }
-
-            if (selectedTroopEntities.Length > 0)
-            {
                 using NativeArray<Team> selectedTroopTeams = selectedTroopQuery.ToComponentDataArray<Team>(Allocator.Temp);
 
                 for (int i = 0, count = selectedTroopEntities.Length; i < count; ++i)
@@ -190,8 +187,7 @@ namespace War
                     NativeArray<float2> hull = new(n, Allocator.Temp);
                     for (int j = 0; j < n; ++j)
                     {
-                        float3 p = troopHullPoints[j].Position;
-                        hull[j] = new float2(p.x, p.z);
+                        hull[j] = troopHullPoints[j].Position;
                     }
 
                     // 2) centroid 계산 (노멀 방향 판정용)
@@ -249,7 +245,10 @@ namespace War
                         // 간단한 miter limit: (padding * miterLimit) 를 초과하면 clamp
                         // (여기선 vertex normal이 극단적이면 큰 이동 발생 가능 -> 제한)
                         float maxOffset = padding * miterLimit;
-                        if (math.abs(appliedOffset) > maxOffset) appliedOffset = math.sign(appliedOffset) * maxOffset;
+                        if (math.abs(appliedOffset) > maxOffset)
+                        {
+                            appliedOffset = math.sign(appliedOffset) * maxOffset;
+                        }
 
                         float2 padded = curr + vnormal * appliedOffset;
 
@@ -290,7 +289,7 @@ namespace War
                     {
                         float t = j / (float)totalSamples;
 
-                        // EvaluatePosition returns local position; container.TransformPoint -> world
+                        // EvaluatePosition returns a local position; container.TransformPoint -> world
                         float3 localPos = activeTroopVisual.SplineContainer.Spline.EvaluatePosition(t);
                         Vector3 worldPos = activeTroopVisual.SplineContainer.transform.TransformPoint(new Vector3(localPos.x, localPos.y, localPos.z));
 
@@ -307,6 +306,18 @@ namespace War
                     activeTroopVisual.LineRenderer.endColor = teamColor;
                 }
             }
+            else
+            {
+                foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
+                {
+                    unselectedTroopEntities.Add(currentSelectedEntity);
+                }
+            }
+
+            foreach (Entity unselectedEntity in unselectedTroopEntities)
+            {
+                RestoreTroopSelected(unselectedEntity);
+            }
 
             if (BattleInputSystem.CurrentSelectedEntity != Entity.Null &&
                 _activeSelectedTroops.TryGetValue(BattleInputSystem.CurrentSelectedEntity, out ActiveTroopVisual currentActiveTroopVisual) &&
@@ -319,7 +330,7 @@ namespace War
                 Vector3 draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(BattleInputSystem.PointInput).Position;
                 draggingPosition.y = height;
 
-                // todo : calc dragStartPosition for cull drag line
+
                 float2 draggingPosition2D = new(draggingPosition.x, draggingPosition.z);
                 if (IsPointInPolygon(draggingPosition2D, currentActiveTroopVisual.SampledPositions))
                 {
@@ -328,36 +339,42 @@ namespace War
                 }
                 else
                 {
-                #region find intersection point between drag line and troop hull polygon
-
                     float2 dragStartPosition2D = new(dragStartPosition.x, dragStartPosition.z);
 
-                    // precise check: segment A->B against each polygon edge
-                    bool foundThis = false;
-                    float bestTThis = float.MaxValue;
-                    Vector2 bestPtThis = default;
+                #region calc dragStartPosition2D for cull drag line
 
-                    int vertexCount = currentActiveTroopVisual.SampledPositions.Length;
-                    for (int j = 0; j < vertexCount; ++j)
+                    bool isFound = false;
+                    float minRateOnDragLine = float.MaxValue;
+                    float2 bestIntersectionPoint = default;
+
+                    int vertexCount = currentActiveTroopVisual.LineRenderer.positionCount;
+                    using NativeArray<Vector3> vertices = new(vertexCount, Allocator.Temp);
+                    currentActiveTroopVisual.LineRenderer.GetPositions(vertices);
+
+                    for (int i = 0; i < vertexCount; ++i)
                     {
-                        Vector2 C = currentActiveTroopVisual.SampledPositions[j];
-                        Vector2 D = currentActiveTroopVisual.SampledPositions[(j + 1) % vertexCount];
+                        Vector3 vertex13d = vertices[i];
+                        Vector3 vertex23d = vertices[(i + 1) % vertexCount];
 
-                        if (SegmentSegmentIntersection2D(dragStartPosition2D, draggingPosition2D, C, D, out float2 inter, out float tOnAB))
+                        float2 vertex1 = new(vertex13d.x, vertex13d.z);
+                        float2 vertex2 = new(vertex23d.x, vertex23d.z);
+
+                        if (IntersectionSegments(dragStartPosition2D, draggingPosition2D, vertex1, vertex2, out float2 inter, out float rateOnDragLine))
                         {
-                            // choose earliest intersection along A->B (smallest t)
-                            if (tOnAB >= 0f && tOnAB <= 1f && tOnAB < bestTThis)
+                            // choose the earliest intersection along A->B (smallest t)
+                            if (rateOnDragLine is >= 0f and <= 1f && rateOnDragLine < minRateOnDragLine)
                             {
-                                bestTThis = tOnAB;
-                                bestPtThis = inter;
-                                foundThis = true;
+                                isFound = true;
+
+                                minRateOnDragLine = rateOnDragLine;
+                                bestIntersectionPoint = inter;
                             }
                         }
                     }
 
-                    if (foundThis)
+                    if (isFound)
                     {
-                        dragStartPosition = new Vector3(bestPtThis.x, dragStartPosition.y, bestPtThis.y);
+                        dragStartPosition = new Vector3(bestIntersectionPoint.x, dragStartPosition.y, bestIntersectionPoint.y);
                     }
 
                 #endregion
@@ -427,30 +444,40 @@ namespace War
             return s;
         }
 
-        // segment (A->B) vs segment (C->D) intersection on 2D XZ; returns intersection point and t along AB (0..1).
-        private static bool SegmentSegmentIntersection2D(float2 A, float2 B, float2 C, float2 D, out float2 intersection, out float tOnAB)
+        /// <summary>
+        /// segment (pointA->pointB) vs segment (pointC->pointD) intersection on 2D XZ
+        /// </summary>
+        /// <param name="pointA"></param>
+        /// <param name="pointB"></param>
+        /// <param name="pointC"></param>
+        /// <param name="pointD"></param>
+        /// <param name="intersectionPoint">intersection point on segment (pointA->pointB)</param>
+        /// <param name="rateIntersectionSegmentAtoB">rate of intersection point along a segment (pointA->pointB) (0..1)</param>
+        /// <returns>if segment (pointA->pointB) vs segment (pointC->pointD) is cross, true else false</returns>
+        private static bool IntersectionSegments(float2 pointA, float2 pointB, float2 pointC, float2 pointD, out float2 intersectionPoint, out float rateIntersectionSegmentAtoB)
         {
-            intersection = default;
-            tOnAB = 0f;
+            intersectionPoint = default;
+            rateIntersectionSegmentAtoB = 0f;
 
-            float r_x = B.x - A.x;
-            float r_y = B.y - A.y;
-            float s_x = D.x - C.x;
-            float s_y = D.y - C.y;
+            float2 segmentAtoB = pointB - pointA;
+            float2 segmentCtoD = pointD - pointC;
 
-            float rxs = r_x * s_y - r_y * s_x;
-            if (math.abs(rxs) < 1e-8f) return false; // parallel or nearly so
-
-            float cma_x = C.x - A.x;
-            float cma_y = C.y - A.y;
-
-            float t = (cma_x * s_y - cma_y * s_x) / rxs;
-            float u = (cma_x * r_y - cma_y * r_x) / rxs;
-
-            if (t >= 0f && t <= 1f && u >= 0f && u <= 1f)
+            float cross = segmentAtoB.x * segmentCtoD.y - segmentAtoB.y * segmentCtoD.x;
+            if (math.abs(cross) < 1e-8f) // parallel or nearly so 
             {
-                intersection = new float2(A.x + t * r_x, A.y + t * r_y);
-                tOnAB = t;
+                return false;
+            }
+
+            float2 segmentAtoC = pointC - pointA;
+
+            rateIntersectionSegmentAtoB = (segmentAtoC.x * segmentCtoD.y - segmentAtoC.y * segmentCtoD.x) / cross;
+            float rateIntersectionSegmentCtoD = (segmentAtoC.x * segmentAtoB.y - segmentAtoC.y * segmentAtoB.x) / cross;
+
+            if (rateIntersectionSegmentAtoB is >= 0f and <= 1f &&
+                rateIntersectionSegmentCtoD is >= 0f and <= 1f)
+            {
+                intersectionPoint = new float2(pointA.x + rateIntersectionSegmentAtoB * segmentAtoB.x, pointA.y + rateIntersectionSegmentAtoB * segmentAtoB.y);
+
                 return true;
             }
 
@@ -469,14 +496,14 @@ namespace War
                 float2 b = polygonInWorld[j];
 
                 // check if the point is exactly on edge - treat as inside
-                if (PointOnSegment2D(point, a, b))
+                if (IsPointOnSegment(point, a, b))
                 {
                     return true;
                 }
 
                 bool intersect =
-                    ((a.y > point.y) != (b.y > point.y)) &&
-                    (point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y + 0f) + a.x);
+                    a.y > point.y != b.y > point.y &&
+                    point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y + 0f) + a.x;
 
                 if (intersect)
                 {
@@ -487,7 +514,7 @@ namespace War
             return isInside;
         }
 
-        private static bool PointOnSegment2D(float2 p, float2 a, float2 b, float eps = 1e-6f)
+        private static bool IsPointOnSegment(float2 p, float2 a, float2 b, float eps = 1e-6f)
         {
             float2 ap = p - a;
             float2 ab = b - a;

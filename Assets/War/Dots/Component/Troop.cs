@@ -48,7 +48,7 @@ namespace War.Dots.Component
     /// </summary>
     public struct TroopHullPoint : IBufferElementData
     {
-        public float3 Position;
+        public float2 Position;
     }
     
     public struct TroopAABB : IComponentData

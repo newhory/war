@@ -70,12 +70,12 @@ namespace War.Dots.Component.ComponentSystem
                     switch (troopSoldierPositionCount)
                     {
                         case 1:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float3(troopSoldierPositions[0].Position.x, 0f, troopSoldierPositions[0].Position.y) });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[0].Position });
                             break;
 
                         case 2:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float3(troopSoldierPositions[0].Position.x, 0f, troopSoldierPositions[0].Position.y) });
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float3(troopSoldierPositions[1].Position.x, 0f, troopSoldierPositions[1].Position.y) });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[0].Position });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[1].Position });
                             break;
                     }
                 }
@@ -131,14 +131,12 @@ namespace War.Dots.Component.ComponentSystem
                     // Concatenate lower and upper to get full hull (exclude the last element of each because it's repeated)
                     for (int i = 0, count = troopLowerSoldierIndexBuffer.Length - 1; i < count; ++i)
                     {
-                        float2 soldierPosition = troopSoldierPositions[troopLowerSoldierIndexBuffer[i].Index].Position;
-                        troopHullPointBuffer.Add(new TroopHullPoint { Position = new float3(soldierPosition.x, 0f, soldierPosition.y) });
+                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[troopLowerSoldierIndexBuffer[i].Index].Position });
                     }
 
                     for (int i = 0, count = troopUpperSoldierIndexBuffer.Length - 1; i < count; ++i)
                     {
-                        float2 soldierPosition = troopSoldierPositions[troopUpperSoldierIndexBuffer[i].Index].Position;
-                        troopHullPointBuffer.Add(new TroopHullPoint { Position = new float3(soldierPosition.x, 0f, soldierPosition.y) });
+                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[troopUpperSoldierIndexBuffer[i].Index].Position });
                     }
                 }
 
@@ -147,11 +145,11 @@ namespace War.Dots.Component.ComponentSystem
 
                 for (int i = 0, count = troopHullPointBuffer.Length; i < count; ++i)
                 {
-                    float3 p = troopHullPointBuffer[i].Position;
+                    float2 p = troopHullPointBuffer[i].Position;
                     if (p.x < minX) minX = p.x;
-                    if (p.z < minZ) minZ = p.z;
+                    if (p.y < minZ) minZ = p.y;
                     if (p.x > maxX) maxX = p.x;
-                    if (p.z > maxZ) maxZ = p.z;
+                    if (p.y > maxZ) maxZ = p.y;
                 }
 
                 troopAABB.Min = new float2(minX - troopAABB.Padding, minZ - troopAABB.Padding);
