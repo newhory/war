@@ -73,6 +73,7 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
+        [BurstCompile]
         private partial struct SetCollisionJob : IJobEntity
         {
             [ReadOnly] public int WorldLayer;

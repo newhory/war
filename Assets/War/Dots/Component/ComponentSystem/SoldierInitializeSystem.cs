@@ -36,16 +36,18 @@ namespace War.Dots.Component.ComponentSystem
             public void Execute(in TroopEntity troopEntity) => TroopEntityMap.TryAdd(troopEntity.Id, troopEntity.Entity);
         }
 
+        [BurstCompile]
         private struct FillSoldierIdJob : IJob
         {
             public NativeArray<int> SoldierIds;
+            public int CurrentSoldierId;
 
 
             public void Execute()
             {
                 for (int i = 0, count = SoldierIds.Length; i < count; ++i)
                 {
-                    SoldierIds[i] = ++s_soldierId;
+                    SoldierIds[i] = ++CurrentSoldierId;
                 }
             }
         }
@@ -190,7 +192,7 @@ namespace War.Dots.Component.ComponentSystem
             dependency = JobHandle.CombineDependencies(resetFormationIds.Dispose(dependency), formationUnits.Dispose(dependency));
 
             dependency = new CollectTroopJob { TroopEntityMap = troopEntityMap.AsParallelWriter() }.ScheduleParallel(_troopQuery, dependency);
-            dependency = new FillSoldierIdJob { SoldierIds = soldierIds }.Schedule(dependency);
+            dependency = new FillSoldierIdJob { SoldierIds = soldierIds, CurrentSoldierId = s_soldierId }.Schedule(dependency);
             dependency =
                 new SetSoldierComponentJob
                     {
