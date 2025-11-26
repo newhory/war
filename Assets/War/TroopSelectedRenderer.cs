@@ -16,24 +16,25 @@ namespace War
 
     public class TroopSelectedRenderer : MonoBehaviour
     {
-        [Header(nameof(LineRenderer))]
-        [SerializeField] private LineRenderer lineRendererPrefab;
+        [Header(nameof(LineRenderer))] [SerializeField]
+        private LineRenderer lineRendererPrefab;
+
         [SerializeField] private float widthMultiplier = 0.05f;
         [SerializeField] private int numCapVertices = 8;
         [SerializeField] private int numCornerVertices = 8;
         [SerializeField] private Color redTeamColor = Color.red;
         [SerializeField] private Color blueTeamColor = Color.blue;
 
-        [Header("Outline Padding")]
-        [SerializeField] private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+        [Header("Outline Padding")] [SerializeField]
+        private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
 
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
 
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
         [SerializeField] private float height = 0.05f; // 지면 Y offset
 
-        [Header("Drag Line")]
-        [SerializeField] private GameObject dragLinePrefab;
+        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
+        [SerializeField] private float tilingFactor = 0.25f;
         [SerializeField] private Material dragHeadMaterial;
         [SerializeField] private float dragHeadSideLength = 1f;
 
@@ -392,6 +393,7 @@ namespace War
                     dragLineTransform.forward = dragDirection;
 
                     _dragLineMaterial.color = currentActiveTroopVisual.LineRenderer.startColor;
+                    _dragLineMaterial.mainTextureScale = new Vector2(dragLineScale.z * tilingFactor, 1f);
 
                     _dragLine.SetActive(true);
 

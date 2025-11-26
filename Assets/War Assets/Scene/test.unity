@@ -156,8 +156,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 258.05, y: -8}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 258.05, y: -15.825}
+  m_SizeDelta: {x: 500.1, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &53795712
 MonoBehaviour:
@@ -2328,7 +2328,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 199.935, y: -8}
+  m_AnchoredPosition: {x: 199.935, y: -15.825}
   m_SizeDelta: {x: 383.87, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &714756874
@@ -3668,8 +3668,9 @@ MonoBehaviour:
   miterLimit: 4
   samplesPerUnit: 8
   height: 0.5
-  dragLinePrefab: {fileID: 5982260434409991591, guid: 2da7fe7634324584e8de578ac0f2c539,
+  dragLinePrefab: {fileID: 5982260434409991591, guid: d33a6762900c9034982ec75075718d02,
     type: 3}
+  tilingFactor: 0.25
   dragHeadMaterial: {fileID: 2100000, guid: 5cf1068a07d3f114b9122d56f950dade, type: 2}
   dragHeadSideLength: 1
 --- !u!114 &1081584494
