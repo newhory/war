@@ -22,15 +22,15 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, Entity entity, ref SoldierTargetForAttack targetForAttack, ref Destination moveToDestination, in LocalTransform localTransform, in AttackRange attackRange)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, ref SoldierTargetForAttack targetForAttack, ref Destination moveToDestination, in LocalTransform localTransform, in AttackRange attackRange)
             {
                 if (targetForAttack.TargetSoldier == Entity.Null ||
                     !DamagedLookup.HasBuffer(targetForAttack.TargetSoldier))
                 {
                     targetForAttack.TargetSoldier = Entity.Null;
 
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveInFormation>(index, entity, true);
 
                     return;
                 }
@@ -41,12 +41,12 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     moveToDestination.Position = localTransform.Position;
 
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(entityIndex, entity, true);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, entity, true);
 
-                    EntityCommandBuffer.SetComponentEnabled<Movable>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(entityIndex, entity, false);
-                    EntityCommandBuffer.SetComponent(entityIndex, entity, new Attack { AttackStep = Attack.Step.NotYet });
+                    EntityCommandBuffer.SetComponentEnabled<Movable>(index, entity, false);
+                    EntityCommandBuffer.SetComponentEnabled<Rotatable>(index, entity, false);
+                    EntityCommandBuffer.SetComponent(index, entity, new Attack { AttackStep = Attack.Step.NotYet });
                 }
                 else
                 {

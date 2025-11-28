@@ -16,66 +16,86 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct CollectSoldierPositionJob : IJobEntity
         {
-            public NativeParallelMultiHashMap<Entity, float2>.ParallelWriter SoldierLocalTransformLookup;
+            public NativeParallelMultiHashMap<Entity, TroopSoldier>.ParallelWriter TroopSoldierLookup;
 
 
-            public void Execute(in SoldierAttachedTroop soldierAttachedTroop, in LocalTransform localTransform) => SoldierLocalTransformLookup.Add(soldierAttachedTroop.TroopEntity, localTransform.Position.xz);
+            private void Execute(Entity soldierEntity, in SoldierAttachedTroop soldierAttachedTroop, in LocalTransform localTransform) =>
+                TroopSoldierLookup.Add(soldierAttachedTroop.TroopEntity, new TroopSoldier { Entity = soldierEntity, Position = localTransform.Position });
         }
 
         [BurstCompile]
-        private partial struct FillTroopSoldierPositionBufferJob : IJobEntity
+        private partial struct FillTroopSoldierBufferJob : IJobEntity
         {
-            [ReadOnly] public NativeParallelMultiHashMap<Entity, float2>.ReadOnly SoldierLocalTransformLookup;
+            [ReadOnly] public NativeParallelMultiHashMap<Entity, TroopSoldier>.ReadOnly TroopSoldierLookup;
 
 
-            public void Execute(Entity troopEntity, DynamicBuffer<TroopSoldierPosition> troopSoldierPositionBuffer)
+            private void Execute(Entity troopEntity, DynamicBuffer<TroopSoldier> troopSoldierBuffer)
             {
-                troopSoldierPositionBuffer.Clear();
+                troopSoldierBuffer.Clear();
 
-                if (!SoldierLocalTransformLookup.TryGetFirstValue(troopEntity, out float2 value, out NativeParallelMultiHashMapIterator<Entity> iterator))
+                if (!TroopSoldierLookup.TryGetFirstValue(troopEntity, out TroopSoldier value, out NativeParallelMultiHashMapIterator<Entity> iterator))
                 {
                     return;
                 }
 
                 do
                 {
-                    troopSoldierPositionBuffer.Add(new TroopSoldierPosition { Position = value });
-                } while (SoldierLocalTransformLookup.TryGetNextValue(out value, ref iterator));
+                    troopSoldierBuffer.Add(value);
+                } while (TroopSoldierLookup.TryGetNextValue(out value, ref iterator));
+            }
+        }
+        
+        [BurstCompile]
+        private partial struct RemoveDeadTroopJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+            
+            [ReadOnly] public double CurrentTime;
+
+
+            private void Execute([EntityIndexInQuery] int index, Entity troopEntity, DynamicBuffer<TroopSoldier> troopSoldierBuffer)
+            {
+                if (troopSoldierBuffer.IsEmpty)
+                {
+                    EntityCommandBuffer.SetComponentEnabled<Alive>(index, troopEntity, false);
+                    
+                    EntityCommandBuffer.AddComponent(index, troopEntity, new DestroyOn { DestroyTime = CurrentTime });
+                }
             }
         }
 
         [BurstCompile]
         private partial struct FillTroopHullPointJob : IJobEntity
         {
-            public void Execute(
-                DynamicBuffer<TroopSoldierPosition> troopSoldierPositions,
+            private static void Execute(
+                DynamicBuffer<TroopSoldier> troopSoldierBuffer,
                 DynamicBuffer<TroopHullPoint> troopHullPointBuffer,
                 DynamicBuffer<TroopSoldierIndexBuffer> troopSoldierIndexBuffer,
                 DynamicBuffer<TroopLowerSoldierIndexBuffer> troopLowerSoldierIndexBuffer,
                 DynamicBuffer<TroopUpperSoldierIndexBuffer> troopUpperSoldierIndexBuffer,
                 ref TroopAABB troopAABB)
             {
-                if (troopSoldierPositions.IsEmpty)
+                if (troopSoldierBuffer.IsEmpty)
                 {
                     return;
                 }
 
                 troopHullPointBuffer.Clear();
 
-                int troopSoldierPositionCount = troopSoldierPositions.Length;
+                int troopSoldierCount = troopSoldierBuffer.Length;
 
                 // If only 1 or 2 points, copy as-is (no hull)
-                if (troopSoldierPositionCount <= 2)
+                if (troopSoldierCount <= 2)
                 {
-                    switch (troopSoldierPositionCount)
+                    switch (troopSoldierCount)
                     {
                         case 1:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[0].Position });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[0].Position.xz });
                             break;
 
                         case 2:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[0].Position });
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[1].Position });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[0].Position.xz });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[1].Position.xz });
                             break;
                     }
                 }
@@ -83,13 +103,13 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     // Compute convex hull via Monotone Chain
                     troopSoldierIndexBuffer.Clear();
-                    for (int i = 0; i < troopSoldierPositionCount; ++i)
+                    for (int i = 0; i < troopSoldierCount; ++i)
                     {
                         troopSoldierIndexBuffer.Add(new TroopSoldierIndexBuffer { Index = i });
                     }
 
                     // Sort indices by x then y
-                    troopSoldierIndexBuffer.AsNativeArray().Sort(new TroopSoldierPositionComparer(troopSoldierPositions));
+                    troopSoldierIndexBuffer.AsNativeArray().Sort(new TroopSoldierComparer(troopSoldierBuffer));
 
                     // Build lower and upper hulls (store indices)
                     troopLowerSoldierIndexBuffer.Clear();
@@ -100,9 +120,9 @@ namespace War.Dots.Component.ComponentSystem
                         while (
                             troopLowerSoldierIndexBuffer.Length >= 2 &&
                             Cross(
-                                troopSoldierPositions[troopLowerSoldierIndexBuffer[^2].Index].Position,
-                                troopSoldierPositions[troopLowerSoldierIndexBuffer[^1].Index].Position,
-                                troopSoldierPositions[soldierPositionIndex].Position) <= 0f)
+                                troopSoldierBuffer[troopLowerSoldierIndexBuffer[^2].Index].Position.xz,
+                                troopSoldierBuffer[troopLowerSoldierIndexBuffer[^1].Index].Position.xz,
+                                troopSoldierBuffer[soldierPositionIndex].Position.xz) <= 0f)
                         {
                             troopLowerSoldierIndexBuffer.RemoveAtSwapBack(troopLowerSoldierIndexBuffer.Length - 1);
                         }
@@ -118,9 +138,9 @@ namespace War.Dots.Component.ComponentSystem
                         while (
                             troopUpperSoldierIndexBuffer.Length >= 2 &&
                             Cross(
-                                troopSoldierPositions[troopUpperSoldierIndexBuffer[^2].Index].Position,
-                                troopSoldierPositions[troopUpperSoldierIndexBuffer[^1].Index].Position,
-                                troopSoldierPositions[soldierPositionIndex].Position) <= 0f)
+                                troopSoldierBuffer[troopUpperSoldierIndexBuffer[^2].Index].Position.xz,
+                                troopSoldierBuffer[troopUpperSoldierIndexBuffer[^1].Index].Position.xz,
+                                troopSoldierBuffer[soldierPositionIndex].Position.xz) <= 0f)
                         {
                             troopUpperSoldierIndexBuffer.RemoveAtSwapBack(troopUpperSoldierIndexBuffer.Length - 1);
                         }
@@ -131,12 +151,12 @@ namespace War.Dots.Component.ComponentSystem
                     // Concatenate lower and upper to get full hull (exclude the last element of each because it's repeated)
                     for (int i = 0, count = troopLowerSoldierIndexBuffer.Length - 1; i < count; ++i)
                     {
-                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[troopLowerSoldierIndexBuffer[i].Index].Position });
+                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[troopLowerSoldierIndexBuffer[i].Index].Position.xz });
                     }
 
                     for (int i = 0, count = troopUpperSoldierIndexBuffer.Length - 1; i < count; ++i)
                     {
-                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierPositions[troopUpperSoldierIndexBuffer[i].Index].Position });
+                        troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[troopUpperSoldierIndexBuffer[i].Index].Position.xz });
                     }
                 }
 
@@ -158,18 +178,18 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
-        private struct TroopSoldierPositionComparer : IComparer<TroopSoldierIndexBuffer>
+        private struct TroopSoldierComparer : IComparer<TroopSoldierIndexBuffer>
         {
-            private DynamicBuffer<TroopSoldierPosition> _buffer;
+            private DynamicBuffer<TroopSoldier> _buffer;
 
 
-            public TroopSoldierPositionComparer(DynamicBuffer<TroopSoldierPosition> buffer) => _buffer = buffer;
+            public TroopSoldierComparer(DynamicBuffer<TroopSoldier> buffer) => _buffer = buffer;
 
 
             public int Compare(TroopSoldierIndexBuffer ia, TroopSoldierIndexBuffer ib)
             {
-                float2 a = _buffer[ia.Index].Position;
-                float2 b = _buffer[ib.Index].Position;
+                float2 a = _buffer[ia.Index].Position.xz;
+                float2 b = _buffer[ib.Index].Position.xz;
 
                 if (a.x < b.x) return -1;
                 if (a.x > b.x) return 1;
@@ -193,7 +213,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             _troopQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, TroopSoldierPosition, TroopHullPoint, TroopAABB>()
+                    .WithAll<Troop, Alive, TroopEntity, TroopSoldier, TroopHullPoint, TroopAABB>()
                     .WithAll<TroopSoldierIndexBuffer, TroopLowerSoldierIndexBuffer, TroopUpperSoldierIndexBuffer>()
                     .Build();
 
@@ -214,27 +234,33 @@ namespace War.Dots.Component.ComponentSystem
                 return;
             }
 
-            JobHandle dependencies = state.Dependency;
+            JobHandle dependency = state.Dependency;
 
-            NativeParallelMultiHashMap<Entity, float2> soldierLocalTransformLookup = new(_soldierQuery.CalculateEntityCount(), Allocator.TempJob);
+            NativeParallelMultiHashMap<Entity, TroopSoldier> troopSoldierLookup = new(_soldierQuery.CalculateEntityCount(), Allocator.TempJob);
 
-            dependencies =
+            dependency =
                 new CollectSoldierPositionJob
                     {
-                        SoldierLocalTransformLookup = soldierLocalTransformLookup.AsParallelWriter()
+                        TroopSoldierLookup = troopSoldierLookup.AsParallelWriter()
                     }
-                    .ScheduleParallel(_soldierQuery, dependencies);
+                    .ScheduleParallel(_soldierQuery, dependency);
 
-            dependencies =
-                new FillTroopSoldierPositionBufferJob
+            dependency =
+                new FillTroopSoldierBufferJob
                     {
-                        SoldierLocalTransformLookup = soldierLocalTransformLookup.AsReadOnly()
+                        TroopSoldierLookup = troopSoldierLookup.AsReadOnly()
                     }
-                    .ScheduleParallel(_troopQuery, dependencies);
+                    .ScheduleParallel(_troopQuery, dependency);
+            
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+            
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency = new RemoveDeadTroopJob { EntityCommandBuffer = ecb.AsParallelWriter(), CurrentTime = SystemAPI.Time.ElapsedTime }.Schedule(_troopQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-            dependencies = new FillTroopHullPointJob().ScheduleParallel(_troopQuery, dependencies);
+            dependency = new FillTroopHullPointJob().ScheduleParallel(_troopQuery, dependency);
 
-            state.Dependency = soldierLocalTransformLookup.Dispose(dependencies);
+            state.Dependency = troopSoldierLookup.Dispose(dependency);
         }
     }
 }

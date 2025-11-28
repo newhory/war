@@ -13,7 +13,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdateForwardJob : IJobEntity
         {
-            public void Execute(ref LocalTransform localTransform, in Forward forward)
+            private static void Execute(ref LocalTransform localTransform, in Forward forward)
             {
                 if (!mathf.Approximately(forward.Value, float3.zero))
                 {

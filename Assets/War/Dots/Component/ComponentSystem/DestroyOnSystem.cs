@@ -19,11 +19,11 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute(Entity entity, in DestroyOn destroyOn)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, in DestroyOn destroyOn)
             {
                 if (CurrentTime >= destroyOn.DestroyTime)
                 {
-                    EntityCommandBuffer.DestroyEntity(entity.Index, entity);
+                    EntityCommandBuffer.DestroyEntity(index, entity);
                 }
             }
         }
@@ -32,22 +32,18 @@ namespace War.Dots.Component.ComponentSystem
         private partial struct CleanUpDamagedJob : IJobEntity
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+            
 
-            private void Execute(Entity entity)
-            {
-                EntityCommandBuffer.RemoveComponent<Damaged>(entity.Index, entity);
-            }
+            private void Execute([EntityIndexInQuery] int index, Entity entity) => EntityCommandBuffer.RemoveComponent<Damaged>(index, entity);
         }
 
         [BurstCompile]
         private partial struct CleanUpSpawnHitEffectJob : IJobEntity
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+            
 
-            private void Execute(Entity entity)
-            {
-                EntityCommandBuffer.RemoveComponent<SpawnHitEffect>(entity.Index, entity);
-            }
+            private void Execute([EntityIndexInQuery] int index, Entity entity) => EntityCommandBuffer.RemoveComponent<SpawnHitEffect>(index, entity);
         }
 
 

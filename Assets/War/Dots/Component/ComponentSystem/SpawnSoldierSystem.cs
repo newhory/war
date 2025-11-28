@@ -173,9 +173,8 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopSelected());
                 EntityCommandBuffer.SetComponentEnabled<TroopSelected>(index, troopEntity, false);
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAABB { Min = float2.zero, Max = float2.zero, Padding = 0.2f });
-
-                EntityCommandBuffer.AddBuffer<TroopSoldierEntity>(index, troopEntity);
-                EntityCommandBuffer.AddBuffer<TroopSoldierPosition>(index, troopEntity);
+                
+                EntityCommandBuffer.AddBuffer<TroopSoldier>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopHullPoint>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopSoldierIndexBuffer>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopLowerSoldierIndexBuffer>(index, troopEntity);
@@ -224,6 +223,7 @@ namespace War.Dots.Component.ComponentSystem
 
             #region tag
 
+                EntityCommandBuffer.AddComponent(index, troopEntity, new Alive());
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Movable());
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Rotatable());
 
@@ -263,7 +263,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             state.RequireForUpdate<SoldierSpawner>();
 
-            _troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, TroopEntity>().Build();
+            _troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, Alive, TroopEntity>().Build();
 
             s_troopId = 1;
         }

@@ -17,7 +17,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct SetForwardJob : IJobEntity
         {
-            public void Execute(ref Forward forward, in PhysicsVelocity velocity) => forward.Value = math.normalize(velocity.Linear);
+            private static void Execute(ref Forward forward, in PhysicsVelocity velocity) => forward.Value = math.normalize(velocity.Linear);
         }
 
         [BurstCompile]
@@ -57,7 +57,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute(Entity entity, in Arrow arrow, in LocalTransform localTransform, in AttackPower attackPower)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, in Arrow arrow, in LocalTransform localTransform, in AttackPower attackPower)
             {
                 if (CollisionEvents.IsEmpty ||
                     !CollisionEvents.TryGetFirstValue(entity, out Entity targetEntity, out NativeParallelMultiHashMapIterator<Entity> iterator))
@@ -69,16 +69,16 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     if (DamagedLookup.HasBuffer(targetEntity))
                     {
-                        EntityCommandBuffer.AppendToBuffer(targetEntity.Index, targetEntity, new Damaged { Hitter = arrow.Shooter, HitDamage = attackPower.Value });
+                        EntityCommandBuffer.AppendToBuffer(index, targetEntity, new Damaged { Hitter = arrow.Shooter, HitDamage = attackPower.Value });
                     }
 
                     if (SpawnHitEffectLookup.HasBuffer(targetEntity))
                     {
-                        EntityCommandBuffer.AppendToBuffer(targetEntity.Index, targetEntity, new SpawnHitEffect { Position = localTransform.Position });
+                        EntityCommandBuffer.AppendToBuffer(index, targetEntity, new SpawnHitEffect { Position = localTransform.Position });
                     }
                 } while (CollisionEvents.TryGetNextValue(out targetEntity, ref iterator));
 
-                EntityCommandBuffer.AddComponent(entity.Index, entity, new DestroyOn { DestroyTime = CurrentTime });
+                EntityCommandBuffer.AddComponent(index, entity, new DestroyOn { DestroyTime = CurrentTime });
             }
         }
 

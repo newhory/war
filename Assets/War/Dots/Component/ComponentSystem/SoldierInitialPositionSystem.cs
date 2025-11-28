@@ -21,7 +21,7 @@ namespace War.Dots.Component.ComponentSystem
             public NativeArray<float3> Positions;
 
 
-            public void Execute([EntityIndexInQuery] int index, in FormationUnit formationUnit)
+            private void Execute([EntityIndexInQuery] int index, in FormationUnit formationUnit)
             {
                 if (!LocalTransformLookup.TryGetComponent(formationUnit.FormationEntity, out LocalTransform formationLocalTransform))
                 {
@@ -38,7 +38,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public NativeArray<float3>.ReadOnly Positions;
 
 
-            public void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform) => localTransform.Position = Positions[index];
+            private void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform) => localTransform.Position = Positions[index];
         }
 
 

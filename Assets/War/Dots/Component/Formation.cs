@@ -24,4 +24,9 @@ namespace War.Dots.Component
         public float Radius;
         public float3 LocalPositionInFormation;
     }
+    
+    public struct ResetFormationUnitIndex : IBufferElementData
+    {
+        public Formation Formation;
+    }
 }

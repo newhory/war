@@ -56,19 +56,25 @@ namespace War.Dots.Component
         public float Value;
     }
 
-    public struct Arrow : IComponentData
-    {
-        public Entity Shooter;
-    }
-
     public struct Health : IComponentData
     {
         public float Value;
     }
 
+    public struct Damaged : ICleanupBufferElementData
+    {
+        public Entity Hitter;
+        public float HitDamage;
+    }
+
     public struct DestroyOn : IComponentData
     {
         public double DestroyTime;
+    }
+
+    public struct SpawnHitEffect : ICleanupBufferElementData
+    {
+        public float3 Position;
     }
 
     public struct NavMeshAgentData : IComponentData

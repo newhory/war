@@ -18,7 +18,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public float DeltaTime;
 
 
-            public void Execute(ref Velocity velocity, ref LocalTransform localTransform, in Acceleration acceleration)
+            private void Execute(ref Velocity velocity, ref LocalTransform localTransform, in Acceleration acceleration)
             {
                 float3 currentVelocity = velocity.Value;
 

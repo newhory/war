@@ -18,7 +18,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public NativeHashSet<int>.ReadOnly ResetFormationIds;
 
 
-            public void Execute(DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer)
+            private void Execute(DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer)
             {
                 foreach (int resetFormationId in ResetFormationIds)
                 {
@@ -33,7 +33,7 @@ namespace War.Dots.Component.ComponentSystem
             public NativeParallelHashMap<int, Entity>.ParallelWriter TroopEntityMap;
 
 
-            public void Execute(in TroopEntity troopEntity) => TroopEntityMap.TryAdd(troopEntity.Id, troopEntity.Entity);
+            private void Execute(in TroopEntity troopEntity) => TroopEntityMap.TryAdd(troopEntity.Id, troopEntity.Entity);
         }
 
         [BurstCompile]
@@ -63,7 +63,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public int BlueTeamLayer;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
+            private void Execute([EntityIndexInQuery] int entityIndex, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
             {
                 soldier.Id = SoldierIds[entityIndex];
 
@@ -103,7 +103,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity soldierEntity, in Soldier soldier, in SoldierAttachedTroop soldierAttachedTroop, in Team team) => EntityCommandBuffer.SetName(soldierEntity.Index, soldierEntity, $"<[{team.Color}]Troop {soldierAttachedTroop.TroopId}>{soldier.Type}_{soldier.Id}");
+            private void Execute(Entity soldierEntity, in Soldier soldier, in SoldierAttachedTroop soldierAttachedTroop, in Team team) => EntityCommandBuffer.SetName(soldierEntity.Index, soldierEntity, $"<[{team.Color}]Troop {soldierAttachedTroop.TroopId}>{soldier.Type}_{soldier.Id}");
         }
 
         private partial struct SetSpawnTroopNameJob : IJobEntity
@@ -111,7 +111,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity, in TroopEntity troopEntity, in Team team) => EntityCommandBuffer.SetName(entity.Index, entity, $"[{team.Color}]{nameof(Troop)} {troopEntity.Id}");
+            private void Execute(Entity entity, in TroopEntity troopEntity, in Team team) => EntityCommandBuffer.SetName(entity.Index, entity, $"[{team.Color}]{nameof(Troop)} {troopEntity.Id}");
         }
 #endif
 
@@ -121,7 +121,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity soldierEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedSoldier>(soldierEntity.Index, soldierEntity);
+            private void Execute(Entity soldierEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedSoldier>(soldierEntity.Index, soldierEntity);
         }
 
         [BurstCompile]
@@ -130,7 +130,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity troopEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedTroop>(troopEntity.Index, troopEntity);
+            private void Execute(Entity troopEntity) => EntityCommandBuffer.RemoveComponent<SpawnSoldierSystem.JustSpawnedTroop>(troopEntity.Index, troopEntity);
         }
 
 
@@ -147,11 +147,11 @@ namespace War.Dots.Component.ComponentSystem
         {
             state.RequireForUpdate<SoldierSpawner>();
 
-            _troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, TroopEntity>().Build();
+            _troopQuery = SystemAPI.QueryBuilder().WithAll<Troop, Alive, TroopEntity>().Build();
 
             _spawnTroopQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, Team, SpawnSoldierSystem.JustSpawnedTroop>()
+                    .WithAll<Troop, Alive, TroopEntity, Team, SpawnSoldierSystem.JustSpawnedTroop>()
                     .Build();
 
             _spawnSoldierQuery =

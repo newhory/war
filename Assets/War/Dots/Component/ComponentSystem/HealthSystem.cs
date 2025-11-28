@@ -19,7 +19,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute(Entity entity, in Health health)
+            private void Execute(Entity entity, in Health health)
             {
                 if (health.Value <= 0)
                 {

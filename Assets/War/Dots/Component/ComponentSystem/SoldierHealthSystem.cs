@@ -1,5 +1,4 @@
 ﻿using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Physics;
@@ -17,7 +16,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity, ref SoldierAnimation soldierAnimation, in Health refHealth)
+            private void Execute(Entity entity, ref SoldierAnimation soldierAnimation, in Health refHealth)
             {
                 if (refHealth.Value > 0)
                 {

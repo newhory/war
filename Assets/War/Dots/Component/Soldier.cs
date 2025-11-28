@@ -34,10 +34,22 @@ namespace War.Dots.Component
     {
         public SoldierWeaponType Type;
     }
-    
+
     public struct SoldierTargetForAttack : IComponentData
     {
         public Entity TargetSoldier;
+    }
+
+    public struct SoldierStateMoveInFormation : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct SoldierStateMoveToTarget : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct SoldierStateAttackTarget : IComponentData, IEnableableComponent
+    {
     }
 
     public struct SoldierAnimation : IComponentData

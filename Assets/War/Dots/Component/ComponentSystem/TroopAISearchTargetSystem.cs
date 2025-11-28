@@ -67,13 +67,13 @@ namespace War.Dots.Component.ComponentSystem
         {
             _searchTargetQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, TroopAISearchTarget, LocalTransform, Team, SearchTargetRange>()
+                    .WithAll<Troop, Alive, TroopEntity, TroopAISearchTarget, LocalTransform, Team, SearchTargetRange>()
                     .WithAllRW<TroopTargetForAttack>()
                     .Build();
 
             _targetQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, Team, LocalTransform>()
+                    .WithAll<Troop, Alive, TroopEntity, Team, LocalTransform>()
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);

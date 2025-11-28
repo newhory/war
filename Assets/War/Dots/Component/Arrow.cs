@@ -4,6 +4,11 @@ using Unity.Mathematics;
 
 namespace War.Dots.Component
 {
+    public struct Arrow : IComponentData
+    {
+        public Entity Shooter;
+    }
+    
     public struct SpawnArrow : IBufferElementData
     {
         public Entity Shooter;
@@ -14,16 +19,5 @@ namespace War.Dots.Component
         public float MaxPoiDeviation; // Max Point of impact deviation
         public float3 StartPosition;
         public float3 EndPosition;
-    }
-
-    public struct SpawnHitEffect : ICleanupBufferElementData
-    {
-        public float3 Position;
-    }
-
-    public struct Damaged : ICleanupBufferElementData
-    {
-        public Entity Hitter;
-        public float HitDamage;
     }
 }

@@ -17,7 +17,7 @@ namespace War.Dots.Component.ComponentSystem
             public NativeParallelMultiHashMap<int, Entity>.ParallelWriter SpatialHashMap;
 
 
-            public void Execute(Entity entity, in LocalTransform localTransform) => SpatialHashMap.Add(HashCell(localTransform.Position, DefaultCellSize), entity);
+            private void Execute(Entity entity, in LocalTransform localTransform) => SpatialHashMap.Add(HashCell(localTransform.Position, DefaultCellSize), entity);
         }
 
 
@@ -50,30 +50,24 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            int boidsCount = _soldierAgentQuery.CalculateEntityCount();
+            int soldierCount = _soldierAgentQuery.CalculateEntityCount();
 
             RefRW<SoldierSpatialHashMap> soldierSpatialHashMap = SystemAPI.GetSingletonRW<SoldierSpatialHashMap>();
-
             if (!soldierSpatialHashMap.ValueRO.SpatialHashMap.IsCreated)
             {
-                soldierSpatialHashMap.ValueRW.SpatialHashMap = new NativeParallelMultiHashMap<int, Entity>(boidsCount, Allocator.Domain);
+                soldierSpatialHashMap.ValueRW.SpatialHashMap = new NativeParallelMultiHashMap<int, Entity>(soldierCount, Allocator.Domain);
             }
             else
             {
-                if (soldierSpatialHashMap.ValueRW.SpatialHashMap.Capacity < boidsCount)
+                if (soldierSpatialHashMap.ValueRW.SpatialHashMap.Capacity < soldierCount)
                 {
-                    soldierSpatialHashMap.ValueRW.SpatialHashMap.Capacity = math.max(boidsCount, soldierSpatialHashMap.ValueRO.SpatialHashMap.Capacity * 2);
+                    soldierSpatialHashMap.ValueRW.SpatialHashMap.Capacity = math.max(soldierCount, soldierSpatialHashMap.ValueRO.SpatialHashMap.Capacity * 2);
                 }
 
                 soldierSpatialHashMap.ValueRW.SpatialHashMap.Clear();
             }
 
-            new MakeSpatialHashMapJob
-                {
-                    SpatialHashMap = soldierSpatialHashMap.ValueRW.SpatialHashMap.AsParallelWriter(),
-                }
-                .ScheduleParallel(_soldierAgentQuery, state.Dependency)
-                .Complete();
+            state.Dependency = new MakeSpatialHashMapJob { SpatialHashMap = soldierSpatialHashMap.ValueRW.SpatialHashMap.AsParallelWriter() }.ScheduleParallel(_soldierAgentQuery, state.Dependency);
         }
     }
 }

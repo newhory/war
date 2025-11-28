@@ -16,7 +16,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(ref Destination destination, in FormationUnit formationUnit)
+            private void Execute(ref Destination destination, in FormationUnit formationUnit)
             {
                 if (!LocalTransformLookup.TryGetComponent(formationUnit.FormationEntity, out LocalTransform formationLocalTransform))
                 {

@@ -14,7 +14,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct CalcVelocityJob : IJobEntity
         {
-            public void Execute(ref Velocity velocity, ref LocalTransform localTransform, ref Forward forward, in Destination targetDestination, in MoveSpeed speed)
+            private static void Execute(ref Velocity velocity, ref LocalTransform localTransform, ref Forward forward, in Destination targetDestination, in MoveSpeed speed)
             {
                 float2 position2d = localTransform.Position.xz;
                 float2 dest2d = targetDestination.Position.xz;

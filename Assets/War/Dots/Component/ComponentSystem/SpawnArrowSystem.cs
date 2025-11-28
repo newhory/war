@@ -27,7 +27,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public float Gravity;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer)
+            private void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<SpawnArrow> arrowSpawnDataBuffer)
             {
                 if (arrowSpawnDataBuffer.IsEmpty)
                 {
@@ -81,7 +81,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public int BlueTeamLayer;
 
 
-            public void Execute(ref PhysicsCollider physicsCollider, in Team team)
+            private void Execute(ref PhysicsCollider physicsCollider, in Team team)
             {
                 unsafe
                 {
@@ -108,7 +108,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            public void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<JustCreated>(entity.Index, entity);
+            private void Execute(Entity entity) => EntityCommandBuffer.RemoveComponent<JustCreated>(entity.Index, entity);
         }
 
 

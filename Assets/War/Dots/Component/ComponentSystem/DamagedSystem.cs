@@ -12,7 +12,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct ApplyDamageJob : IJobEntity
         {
-            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref Health health)
+            private static void Execute(DynamicBuffer<Damaged> damagedBuffer, ref Health health)
             {
                 foreach (Damaged damaged in damagedBuffer)
                 {

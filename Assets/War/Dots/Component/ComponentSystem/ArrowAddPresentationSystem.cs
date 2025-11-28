@@ -9,7 +9,7 @@ namespace War.Dots.Component.ComponentSystem
 {
     [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
     [RequireMatchingQueriesForUpdate]
-    public partial class ArrowAddPresentationSystem : SystemBase
+    public partial struct ArrowAddPresentationSystem : ISystem, ISystemStartStop
     {
         private static ObjectPool<GameObject> s_arrowPool;
         private static List<(Entity entity, PooledGameObject soldierViewComponent)> s_pooledGameObjectBuffer;
@@ -43,17 +43,16 @@ namespace War.Dots.Component.ComponentSystem
             s_arrowPool = null;
         }
 
-        protected override void OnCreate() => s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
 
-        protected override void OnStartRunning() => InitPool();
+        public void OnCreate(ref SystemState state) => s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
 
-        protected override void OnDestroy() => DisposePool();
+        public void OnDestroy(ref SystemState state) => DisposePool();
 
-        protected override void OnUpdate()
+        public void OnUpdate(ref SystemState state)
         {
             s_pooledGameObjectBuffer.Clear();
 
-            EndInitializationEntityCommandBufferSystem ecbSystem = World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
+            EndInitializationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
 
             foreach (
@@ -70,8 +69,14 @@ namespace War.Dots.Component.ComponentSystem
 
             foreach (var (entity, pooledGameObject) in s_pooledGameObjectBuffer)
             {
-                EntityManager.AddComponentData(entity, pooledGameObject);
+                state.EntityManager.AddComponentData(entity, pooledGameObject);
             }
+        }
+
+        public void OnStartRunning(ref SystemState state) => InitPool();
+
+        public void OnStopRunning(ref SystemState state)
+        {
         }
     }
 }

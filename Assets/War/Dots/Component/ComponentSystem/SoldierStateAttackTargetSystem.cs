@@ -20,13 +20,12 @@ namespace War.Dots.Component.ComponentSystem
 
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
             [ReadOnly] public double CurrentTime;
-
-            [ReadOnly] public BufferLookup<SpawnArrow> SpawnArrowLookup;
+            
             [ReadOnly] public BufferLookup<Damaged> DamagedLookup;
             [ReadOnly] public BufferLookup<SpawnHitEffect> SpawnHitEffectLookup;
 
 
-            public void Execute(
+            private void Execute(
                 [EntityIndexInQuery] int index, Entity soldierEntity,
                 ref Attack attack, ref SoldierTargetForAttack targetForAttack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
                 in Team team, in LocalTransform localTransform,
@@ -138,7 +137,6 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _stateAttackTargetQuery;
         private ComponentLookup<LocalTransform> _localTransformLookup;
-        private BufferLookup<SpawnArrow> _spawnArrowLookup;
         private BufferLookup<Damaged> _damagedLookup;
         private BufferLookup<SpawnHitEffect> _spawnHitEffectLookup;
 
@@ -155,7 +153,6 @@ namespace War.Dots.Component.ComponentSystem
                     .Build();
 
             _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
-            _spawnArrowLookup = state.GetBufferLookup<SpawnArrow>(true);
             _damagedLookup = state.GetBufferLookup<Damaged>(true);
             _spawnHitEffectLookup = state.GetBufferLookup<SpawnHitEffect>(true);
         }
@@ -167,7 +164,6 @@ namespace War.Dots.Component.ComponentSystem
         public void OnUpdate(ref SystemState state)
         {
             _localTransformLookup.Update(ref state);
-            _spawnArrowLookup.Update(ref state);
             _damagedLookup.Update(ref state);
             _spawnHitEffectLookup.Update(ref state);
 
@@ -183,8 +179,7 @@ namespace War.Dots.Component.ComponentSystem
 
                         LocalTransformLookup = _localTransformLookup,
                         CurrentTime = SystemAPI.Time.ElapsedTime,
-
-                        SpawnArrowLookup = _spawnArrowLookup,
+                        
                         DamagedLookup = _damagedLookup,
                         SpawnHitEffectLookup = _spawnHitEffectLookup,
                     }

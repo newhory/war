@@ -66,7 +66,7 @@ namespace War.Dots.Component.ComponentSystem
 
             _troopGroup =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity>()
+                    .WithAll<Troop, Alive, TroopEntity>()
                     .Build();
 
             _soldierGroup =

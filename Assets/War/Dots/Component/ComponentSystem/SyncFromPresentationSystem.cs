@@ -27,8 +27,9 @@ namespace War.Dots.Component.ComponentSystem
         private partial struct SyncJob : IJobEntity
         {
             [ReadOnly] public NativeArray<SyncData>.ReadOnly SyncDataArray;
+            
 
-            public void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform, ref Velocity velocity, ref MoveSpeed moveSpeed)
+            private void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform, ref Velocity velocity, ref MoveSpeed moveSpeed)
             {
                 SyncData syncData = SyncDataArray[index];
 

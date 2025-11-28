@@ -10,15 +10,15 @@ namespace War.Dots.Component.ComponentSystem
     [UpdateAfter(typeof(Group.LastUpdateGroup))]
     [UpdateBefore(typeof(Group.ViewSystemGroup))]
     [RequireMatchingQueriesForUpdate]
-    public partial class FieldCameraSystem : SystemBase
+    public partial struct FieldCameraSystem : ISystem, ISystemStartStop
     {
         private EntityQuery _fieldCameraQuery;
         private EntityQuery _resetFieldCameraQuery;
 
 
-        protected override void OnCreate()
+        public void OnCreate(ref SystemState state)
         {
-            RequireForUpdate<FieldCamera>();
+            state.RequireForUpdate<FieldCamera>();
 
             _fieldCameraQuery =
                 SystemAPI.QueryBuilder()
@@ -32,30 +32,15 @@ namespace War.Dots.Component.ComponentSystem
                     .Build();
         }
 
-        protected override void OnStartRunning()
+        public void OnDestroy(ref SystemState state)
         {
-            ResetCamera();
         }
 
-        private Entity ResetCamera()
-        {
-            CinemachineCamera cam = FieldCameraInstance.FieldCamera;
-            Transform camTransform = cam.transform;
-
-            Entity fieldCameraEntity = SystemAPI.GetSingletonEntity<FieldCamera>();
-            FieldCamera fieldCamera = EntityManager.GetComponentData<FieldCamera>(fieldCameraEntity);
-
-            camTransform.position = fieldCamera.OriginalCameraPosition;
-            camTransform.rotation = fieldCamera.OriginalCameraRotation;
-
-            return fieldCameraEntity;
-        }
-
-        protected override void OnUpdate()
+        public void OnUpdate(ref SystemState state)
         {
             if (!_resetFieldCameraQuery.IsEmpty)
             {
-                EntityManager.SetComponentEnabled<ResetFieldCamera>(ResetCamera(), false);
+                state.EntityManager.SetComponentEnabled<ResetFieldCamera>(ResetCamera(ref state), false);
             }
 
             if (_fieldCameraQuery.IsEmpty)
@@ -171,6 +156,26 @@ namespace War.Dots.Component.ComponentSystem
             fieldCameraRuntimeData.VelocityPos = velocityPos;
 
             _fieldCameraQuery.SetSingleton(fieldCameraRuntimeData);
+        }
+
+        public void OnStartRunning(ref SystemState state) => ResetCamera(ref state);
+
+        public void OnStopRunning(ref SystemState state)
+        {
+        }
+
+        private Entity ResetCamera(ref SystemState state)
+        {
+            CinemachineCamera cam = FieldCameraInstance.FieldCamera;
+            Transform camTransform = cam.transform;
+
+            Entity fieldCameraEntity = SystemAPI.GetSingletonEntity<FieldCamera>();
+            FieldCamera fieldCamera = state.EntityManager.GetComponentData<FieldCamera>(fieldCameraEntity);
+
+            camTransform.position = fieldCamera.OriginalCameraPosition;
+            camTransform.rotation = fieldCamera.OriginalCameraRotation;
+
+            return fieldCameraEntity;
         }
     }
 }

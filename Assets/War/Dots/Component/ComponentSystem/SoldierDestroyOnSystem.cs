@@ -19,7 +19,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public double CurrentTime;
 
 
-            public void Execute(in DestroyOn destroyOn, in Formation formation)
+            private void Execute(in DestroyOn destroyOn, in Formation formation)
             {
                 if (CurrentTime >= destroyOn.DestroyTime)
                 {

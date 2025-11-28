@@ -15,7 +15,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct SoldierHitDamageJob : IJobEntity
         {
-            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref SoldierAnimation soldierAnimation)
+            private static void Execute(DynamicBuffer<Damaged> damagedBuffer, ref SoldierAnimation soldierAnimation)
             {
                 if (soldierAnimation.Current == SoldierAnimation.State.Hit)
                 {
@@ -43,7 +43,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(DynamicBuffer<Damaged> damagedBuffer, ref SoldierTargetForAttack targetForAttack, in LocalTransform localTransform)
+            private void Execute(DynamicBuffer<Damaged> damagedBuffer, ref SoldierTargetForAttack targetForAttack, in LocalTransform localTransform)
             {
                 float distanceToTarget = GetDistance(localTransform, targetForAttack.TargetSoldier);
                 Entity target = targetForAttack.TargetSoldier;

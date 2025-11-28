@@ -4,11 +4,6 @@ using Unity.Mathematics;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    public struct ResetFormationUnitIndex : IBufferElementData
-    {
-        public Formation Formation;
-    }
-
     [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct FormationUnitIndexingSystem : ISystem

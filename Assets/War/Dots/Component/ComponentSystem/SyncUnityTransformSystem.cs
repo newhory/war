@@ -1,7 +1,10 @@
-﻿using Unity.Entities;
+﻿using Unity.Collections;
+using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
+using UnityEngine.Jobs;
+using ZLinq;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -10,9 +13,29 @@ namespace War.Dots.Component.ComponentSystem
     [RequireMatchingQueriesForUpdate]
     public partial struct SyncUnityTransformSystem : ISystem
     {
-        public void OnCreate(ref SystemState state)
+        private struct SyncTransformJob : IJobParallelForTransform
         {
+            [ReadOnly] public NativeArray<LocalTransform> LocalTransforms;
+
+
+            public void Execute(int index, TransformAccess transform)
+            {
+                LocalTransform localTransform = LocalTransforms[index];
+
+                transform.SetLocalPositionAndRotation(localTransform.Position, localTransform.Rotation);
+                transform.localScale = new float3(localTransform.Scale);
+            }
         }
+
+
+        private EntityQuery _syncTransformQuery;
+
+
+        public void OnCreate(ref SystemState state) =>
+            _syncTransformQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<UnityTransform, LocalTransform>()
+                    .Build();
 
         public void OnDestroy(ref SystemState state)
         {
@@ -20,18 +43,23 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            foreach (
-                (RefRO<UnityTransform> unityTransform, RefRO<LocalTransform> localTransform)
-                in
-                SystemAPI.Query<RefRO<UnityTransform>, RefRO<LocalTransform>>())
-            {
-                Transform transform = unityTransform.ValueRO.Transform.Value;
-                if (transform)
-                {
-                    transform.SetLocalPositionAndRotation(localTransform.ValueRO.Position, localTransform.ValueRO.Rotation);
-                    transform.localScale = new float3(localTransform.ValueRO.Scale);
-                }
-            }
+            NativeArray<LocalTransform> localTransforms = _syncTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            NativeArray<UnityTransform> unityTransforms = _syncTransformQuery.ToComponentDataArray<UnityTransform>(Allocator.TempJob);
+
+            JobHandle dependency = state.Dependency;
+
+            dependency =
+                new SyncTransformJob
+                    {
+                        LocalTransforms = localTransforms
+                    }
+                    .Schedule(
+                        new TransformAccessArray(unityTransforms.AsValueEnumerable().Select(unityTransform => unityTransform.Transform.Value).ToArray()),
+                        dependency);
+
+            dependency = JobHandle.CombineDependencies(localTransforms.Dispose(dependency), unityTransforms.Dispose(dependency));
+
+            state.Dependency = dependency;
         }
     }
 }

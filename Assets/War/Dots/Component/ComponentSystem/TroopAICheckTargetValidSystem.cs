@@ -41,7 +41,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopEntity, TroopAICheckTargetValid>()
+                    .WithAll<Troop, Alive, TroopEntity, TroopAICheckTargetValid>()
                     .WithAllRW<TroopTargetForAttack>()
                     .Build();
 

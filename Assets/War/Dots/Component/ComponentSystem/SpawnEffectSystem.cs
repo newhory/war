@@ -22,7 +22,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public float Duration;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<SpawnHitEffect> hitEffectDataBuffer)
+            private void Execute([EntityIndexInQuery] int index, DynamicBuffer<SpawnHitEffect> hitEffectDataBuffer)
             {
                 if (hitEffectDataBuffer.IsEmpty)
                 {
@@ -31,13 +31,13 @@ namespace War.Dots.Component.ComponentSystem
 
                 foreach (SpawnHitEffect hitEffectData in hitEffectDataBuffer)
                 {
-                    Entity effectEntity = EntityCommandBuffer.Instantiate(entityIndex, ProtoType);
+                    Entity effectEntity = EntityCommandBuffer.Instantiate(index, ProtoType);
 
                     float3 effectPosition = hitEffectData.Position;
 
-                    EntityCommandBuffer.AddComponent(entityIndex, effectEntity, new DestroyOn { DestroyTime = CurrentTime + Duration });
-                    EntityCommandBuffer.AddComponent(entityIndex, effectEntity, new LocalTransform { Position = effectPosition, Scale = 1f });
-                    EntityCommandBuffer.AddComponent(entityIndex, effectEntity, new Forward { Value = new float3(0, 0, 1) });
+                    EntityCommandBuffer.AddComponent(index, effectEntity, new DestroyOn { DestroyTime = CurrentTime + Duration });
+                    EntityCommandBuffer.AddComponent(index, effectEntity, new LocalTransform { Position = effectPosition, Scale = 1f });
+                    EntityCommandBuffer.AddComponent(index, effectEntity, new Forward { Value = new float3(0, 0, 1) });
                 }
 
                 hitEffectDataBuffer.Clear();

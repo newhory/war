@@ -31,7 +31,7 @@ namespace War.Dots.Component.ComponentSystem
             public NativeArray<TroopPicked> TroopPickedArray;
 
 
-            public void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<TroopHullPoint> troopHullPoints, in TroopAABB troopAABB, in TroopEntity troopEntity, in Team team)
+            private void Execute([EntityIndexInQuery] int entityIndex, DynamicBuffer<TroopHullPoint> troopHullPoints, in TroopAABB troopAABB, in TroopEntity troopEntity, in Team team)
             {
                 TroopPicked troopPicked = new()
                 {
@@ -125,7 +125,7 @@ namespace War.Dots.Component.ComponentSystem
 
             _troopQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Troop, TroopAABB, TroopEntity, Team, TroopHullPoint>()
+                    .WithAll<Troop, Alive, TroopAABB, TroopEntity, Team, TroopHullPoint>()
                     .Build();
         }
 
@@ -258,7 +258,7 @@ namespace War.Dots.Component.ComponentSystem
 
                 state.EntityManager.SetComponentEnabled<OnPointerPressEnd>(PointInput, false);
 
-                // drag had started
+                // drag was started
                 if (state.EntityManager.IsComponentEnabled<DragStartWorldPosition>(PointInput))
                 {
                     OnPointerDragEnd onPointerDragEnd = state.EntityManager.GetComponentData<OnPointerDragEnd>(PointInput);
@@ -283,7 +283,7 @@ namespace War.Dots.Component.ComponentSystem
                                 state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);
                                 state.EntityManager.SetComponentEnabled<TroopStateMoveToDestination>(CurrentSelectedEntity, true);
                             }
-                            else // currentPickedTroop and _currentSelectedEntity are not Null
+                            else // currentPickedTroop and CurrentSelectedEntity are not Null both.
                             {
                                 if (CurrentSelectedTeamColor != teamColor)
                                 {
