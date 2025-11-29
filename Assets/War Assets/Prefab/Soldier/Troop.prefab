@@ -9,8 +9,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4443793541295140}
-  - component: {fileID: -8772854117374390838}
-  - component: {fileID: -826369447150691574}
+  - component: {fileID: 4161718259762086346}
+  - component: {fileID: -7329136039885718640}
+  - component: {fileID: 6423122602496711748}
+  - component: {fileID: -2458489053009275030}
   m_Layer: 0
   m_Name: Troop
   m_TagString: Untagged
@@ -33,51 +35,55 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!135 &-8772854117374390838
-SphereCollider:
+--- !u!114 &4161718259762086346
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1139049301690484}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
   m_Enabled: 1
-  serializedVersion: 3
-  m_Radius: 0.5
-  m_Center: {x: 0, y: 0, z: 0}
---- !u!54 &-826369447150691574
-Rigidbody:
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcd4cd82e3a845f9bf8f42e4f76af43d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::War.Dots.Component.Authoring.TroopAABBAuthoring
+  padding: 0.2
+--- !u!114 &-7329136039885718640
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1139049301690484}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a56ce30554647679e5d2e1daab83888, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::War.Dots.Component.Authoring.AccelerationAuthoring
+  maxAcceleration: 1
+--- !u!114 &6423122602496711748
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139049301690484}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0504540eca65e08408cd984a29a13fc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::War.Dots.Component.Authoring.MoveSpeedAuthoring
+  maxSpeed: 4
+--- !u!114 &-2458489053009275030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139049301690484}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33551f02ff4d62f48b6cc8d7d287ec55, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::War.Dots.Component.Authoring.SearchTargetRangeAuthoring
+  value: 200

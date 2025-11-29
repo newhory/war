@@ -48,6 +48,7 @@ namespace War.Dots.Component
     public struct SoldierSpawner : IComponentData
     {
         public Entity SoldierProtoType;
+        public Entity TroopProtoType;
         
         public SoldierData SpearSoldierData;
         public SoldierData ArcherSoldierData;

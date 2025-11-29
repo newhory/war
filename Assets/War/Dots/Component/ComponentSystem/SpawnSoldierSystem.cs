@@ -155,6 +155,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
+            [ReadOnly] public Entity TroopProtoType;
             [ReadOnly] public NativeArray<TroopForSpawn>.ReadOnly TroopForSpawns;
 
 
@@ -162,7 +163,7 @@ namespace War.Dots.Component.ComponentSystem
             {
                 TroopForSpawn troopForSpawn = TroopForSpawns[index];
 
-                Entity troopEntity = EntityCommandBuffer.CreateEntity(index);
+                Entity troopEntity = EntityCommandBuffer.Instantiate(index, TroopProtoType);
 
             #region troop
 
@@ -172,8 +173,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopSelected());
                 EntityCommandBuffer.SetComponentEnabled<TroopSelected>(index, troopEntity, false);
-                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopAABB { Min = float2.zero, Max = float2.zero, Padding = 0.2f });
-                
+
                 EntityCommandBuffer.AddBuffer<TroopSoldier>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopHullPoint>(index, troopEntity);
                 EntityCommandBuffer.AddBuffer<TroopSoldierIndexBuffer>(index, troopEntity);
@@ -208,16 +208,8 @@ namespace War.Dots.Component.ComponentSystem
                         1f));
 
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Velocity());
-                EntityCommandBuffer.AddComponent(index, troopEntity, new Acceleration { Max = 1f });
-                EntityCommandBuffer.AddComponent(index, troopEntity, new MoveSpeed { Max = 4f, CurrentMax = 4f });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Forward { Value = math.forward(troopForSpawn.TroopRotation) });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Destination { Position = new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y) });
-
-            #endregion
-
-            #region combat
-
-                EntityCommandBuffer.AddComponent(index, troopEntity, new SearchTargetRange { Value = 200f });
 
             #endregion
 
@@ -363,8 +355,10 @@ namespace War.Dots.Component.ComponentSystem
                 dependency =
                     new SpawnTroopJob
                         {
-                            TroopForSpawns = spawnTroopList.AsReadOnly(),
                             EntityCommandBuffer = ecb.AsParallelWriter(),
+
+                            TroopProtoType = soldierSpawner.TroopProtoType,
+                            TroopForSpawns = spawnTroopList.AsReadOnly(),
                         }
                         .Schedule(spawnTroopList.Length, 64, dependency);
                 ecbSystem.AddJobHandleForProducer(dependency);
@@ -377,9 +371,10 @@ namespace War.Dots.Component.ComponentSystem
                 dependency =
                     new SpawnSoldierJob
                         {
+                            EntityCommandBuffer = ecb.AsParallelWriter(),
+
                             SoldierProtoType = soldierSpawner.SoldierProtoType,
                             SoldierForSpawns = spawnSoldierList.AsReadOnly(),
-                            EntityCommandBuffer = ecb.AsParallelWriter(),
                         }
                         .Schedule(spawnSoldierList.Length, 64, dependency);
                 ecbSystem.AddJobHandleForProducer(dependency);

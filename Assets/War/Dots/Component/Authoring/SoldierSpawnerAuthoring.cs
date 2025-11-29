@@ -7,6 +7,7 @@ namespace War.Dots.Component.Authoring
     public class SoldierSpawnerAuthoring : MonoBehaviour
     {
         [SerializeField] private GameObject soldierPrefab;
+        [SerializeField] private GameObject troopPrefab;
 
         [SerializeField] private SoldierData spear;
         [SerializeField] private SoldierData archer;
@@ -25,6 +26,7 @@ namespace War.Dots.Component.Authoring
                     new SoldierSpawner
                     {
                         SoldierProtoType = GetEntity(authoring.soldierPrefab, TransformUsageFlags.Dynamic),
+                        TroopProtoType = GetEntity(authoring.troopPrefab, TransformUsageFlags.Dynamic),
 
                         SpearSoldierData = authoring.spear,
                         ArcherSoldierData = authoring.archer,
