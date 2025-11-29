@@ -22,6 +22,12 @@ namespace War.Dots.Component
     public struct UseDefaultMaxSpeed : IComponentData, IEnableableComponent
     {
     }
+    
+    public struct MovableChanged : IComponentData
+    {
+        public bool IsMovable;
+        public bool IsChanged;
+    }
 
     public struct Velocity : IComponentData
     {
@@ -37,18 +43,23 @@ namespace War.Dots.Component
     public struct MoveSpeed : IComponentData
     {
         public float Current;
+        
         public float Max;
+        
         public float CurrentMax;
+        public float OldMax;
     }
 
     public struct Forward : IComponentData
     {
         public float3 Value;
+        public float3 OldValue;
     }
 
     public struct Destination : IComponentData
     {
         public float3 Position;
+        public float3 OldPosition;
     }
 
     public struct SearchTargetRange : IComponentData

@@ -27,7 +27,7 @@ namespace War.Dots.Component.ComponentSystem
         private partial struct SyncJob : IJobEntity
         {
             [ReadOnly] public NativeArray<SyncData>.ReadOnly SyncDataArray;
-            
+
 
             private void Execute([EntityIndexInQuery] int index, ref LocalTransform localTransform, ref Velocity velocity, ref MoveSpeed moveSpeed)
             {
@@ -41,86 +41,110 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
-        private EntityQuery _navMeshQuery;
-        private ComponentLookup<Movable> _movableLookup;
+
+        private EntityQuery _agentsQuery;
+        private EntityQuery _obstaclesQuery;
+
+        private NativeList<SyncData> _syncAgentBuffer;
+        private NativeList<SyncData> _syncObstacleBuffer;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _navMeshQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<NavMeshAgentData, UnityNavMeshAgent, UnityNavMeshObstacle>()
-                    .WithAllRW<LocalTransform, Velocity>()
-                    .WithAllRW<MoveSpeed>()
-                    .WithPresent<Movable>()
-                    .Build();
+            _agentsQuery = SystemAPI.QueryBuilder()
+                .WithAll<UnityNavMeshAgent>()
+                .WithAllRW<LocalTransform, Velocity>()
+                .WithAllRW<MoveSpeed>()
+                .WithAll<Movable>() // 이동 가능만
+                .Build();
 
-            _movableLookup = SystemAPI.GetComponentLookup<Movable>(true);
+            _obstaclesQuery = SystemAPI.QueryBuilder()
+                .WithAll<UnityNavMeshObstacle>()
+                .WithAllRW<LocalTransform, Velocity>()
+                .WithAllRW<MoveSpeed>()
+                .WithDisabled<Movable>() // 이동 불가만
+                .Build();
+
+            _syncAgentBuffer = new NativeList<SyncData>(Allocator.Domain);
+            _syncObstacleBuffer = new NativeList<SyncData>(Allocator.Domain);
         }
 
         public void OnDestroy(ref SystemState state)
         {
+            if (_syncAgentBuffer.IsCreated)
+            {
+                _syncAgentBuffer.Dispose();
+            }
+
+            if (_syncObstacleBuffer.IsCreated)
+            {
+                _syncObstacleBuffer.Dispose();
+            }
         }
 
         public void OnUpdate(ref SystemState state)
         {
-            _movableLookup.Update(ref state);
+            _syncAgentBuffer.Clear();
 
-            int entityCount = _navMeshQuery.CalculateEntityCount();
+            NativeArray<UnityNavMeshAgent> unityNavMeshAgents = _agentsQuery.ToComponentDataArray<UnityNavMeshAgent>(Allocator.TempJob);
 
-            NativeArray<SyncData> syncDataArray = new(entityCount, Allocator.TempJob);
-            NativeArray<Entity> entityArray = _navMeshQuery.ToEntityArray(Allocator.TempJob);
-            NativeArray<UnityNavMeshAgent> unityNavMeshAgents = _navMeshQuery.ToComponentDataArray<UnityNavMeshAgent>(Allocator.TempJob);
-            NativeArray<UnityNavMeshObstacle> unityNavMeshObstacles = _navMeshQuery.ToComponentDataArray<UnityNavMeshObstacle>(Allocator.TempJob);
-
-            for (int i = 0; i < entityCount; ++i)
+            for (int i = 0, count = unityNavMeshAgents.Length; i < count; ++i)
             {
-                if (_movableLookup.IsComponentEnabled(entityArray[i]))
+                NavMeshAgent agent = unityNavMeshAgents[i].Agent;
+                if (agent)
                 {
-                    NavMeshAgent agent = unityNavMeshAgents[i].Agent;
-                    if (agent)
-                    {
-                        Transform agentTransform = agent.transform;
-                        float3 agentVelocity = agent.velocity;
+                    agent.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+                    float3 agentVelocity = agent.velocity;
 
-                        syncDataArray[i] = new SyncData
+                    _syncAgentBuffer.Add(
+                        new SyncData
                         {
-                            Position = agentTransform.position,
-                            Rotation = agentTransform.rotation,
+                            Position = position,
+                            Rotation = rotation,
                             Velocity = agentVelocity,
                             MoveSpeed = math.length(agentVelocity.xz)
-                        };
-                    }
+                        });
                 }
-                else
-                {
-                    NavMeshObstacle obstacle = unityNavMeshObstacles[i].Obstacle;
-                    if (obstacle)
-                    {
-                        Transform obstacleTransform = obstacle.transform;
+            }
 
-                        syncDataArray[i] = new SyncData
+            _syncObstacleBuffer.Clear();
+
+            NativeArray<UnityNavMeshObstacle> unityNavMeshObstacles = _obstaclesQuery.ToComponentDataArray<UnityNavMeshObstacle>(Allocator.TempJob);
+
+            for (int i = 0, count = unityNavMeshObstacles.Length; i < count; ++i)
+            {
+                NavMeshObstacle obstacle = unityNavMeshObstacles[i].Obstacle;
+                if (obstacle)
+                {
+                    obstacle.transform.GetPositionAndRotation(out Vector3 position, out Quaternion rotation);
+
+                    _syncObstacleBuffer.Add(
+                        new SyncData
                         {
-                            Position = obstacleTransform.position,
-                            Rotation = obstacleTransform.rotation,
+                            Position = position,
+                            Rotation = rotation,
                             Velocity = float3.zero,
                             MoveSpeed = 0f
-                        };
-                    }
+                        });
                 }
             }
 
             JobHandle dependency = state.Dependency;
 
-            dependency = new SyncJob { SyncDataArray = syncDataArray.AsReadOnly() }.ScheduleParallel(_navMeshQuery, dependency);
+            if (_syncAgentBuffer.Length > 0)
+            {
+                dependency = new SyncJob { SyncDataArray = _syncAgentBuffer.AsReadOnly() }.ScheduleParallel(_agentsQuery, dependency);
+            }
+
+            if (_syncObstacleBuffer.Length > 0)
+            {
+                dependency = new SyncJob { SyncDataArray = _syncObstacleBuffer.AsReadOnly() }.ScheduleParallel(_obstaclesQuery, dependency);
+            }
 
             dependency =
                 JobHandle.CombineDependencies(
-                    syncDataArray.Dispose(dependency),
-                    entityArray.Dispose(dependency),
-                    JobHandle.CombineDependencies(
-                        unityNavMeshAgents.Dispose(dependency),
-                        unityNavMeshObstacles.Dispose(dependency)));
+                    unityNavMeshAgents.Dispose(dependency),
+                    unityNavMeshObstacles.Dispose(dependency));
 
             state.Dependency = dependency;
         }

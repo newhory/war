@@ -88,9 +88,9 @@ namespace War.Dots.Component.ComponentSystem
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
 
             foreach (
-                var (soldier, team, localTransform, forward, entity)
+                var (soldier, team, localTransform, forward, agentData, acceleration, entity)
                 in
-                SystemAPI.Query<RefRO<Soldier>, RefRO<Team>, RefRO<LocalTransform>, RefRO<Forward>>()
+                SystemAPI.Query<RefRO<Soldier>, RefRO<Team>, RefRO<LocalTransform>, RefRO<Forward>, RefRO<NavMeshAgentData>, RefRO<Acceleration>>()
                     .WithAll<Alive>()
                     .WithNone<UnityAnimator, UnityNavMeshAgent, UnityNavMeshObstacle>()
                     .WithEntityAccess())
@@ -141,6 +141,8 @@ namespace War.Dots.Component.ComponentSystem
                     ecb.AddComponent(entity, new UnityNavMeshAgent { Agent = navMeshAgent });
 
                     navMeshAgent.updateRotation = true;
+                    navMeshAgent.radius = agentData.ValueRO.Radius;
+                    navMeshAgent.acceleration = acceleration.ValueRO.Max;
                 }
 
                 if (!gameObject.TryGetComponent(out NavMeshObstacle navMeshObstacle))
@@ -151,6 +153,8 @@ namespace War.Dots.Component.ComponentSystem
                 if (navMeshObstacle)
                 {
                     ecb.AddComponent(entity, new UnityNavMeshObstacle { Obstacle = navMeshObstacle });
+                    
+                    navMeshObstacle.radius = agentData.ValueRO.Radius * 0.5f;
                 }
             }
 

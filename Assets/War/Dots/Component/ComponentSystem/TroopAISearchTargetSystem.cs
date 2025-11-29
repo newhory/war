@@ -1,6 +1,7 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Transforms;
 using Unity.Mathematics;
 
@@ -15,15 +16,15 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct SearchTargetJob : IJobEntity
         {
-            [ReadOnly] public NativeArray<Entity>.ReadOnly TargetEntities;
-            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
-            [ReadOnly] public ComponentLookup<Team> TeamLookup;
+            [ReadOnly] public NativeArray<Entity>.ReadOnly TargetCandidateTroopEntities;
+            [ReadOnly] public NativeArray<Team>.ReadOnly TargetCandidateTroopTeams;
+            [ReadOnly] public NativeArray<LocalTransform>.ReadOnly TargetCandidateTroopTransforms;
 
 
-            public void Execute(Entity entity, ref TroopTargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
+            private void Execute(Entity entity, ref TroopTargetForAttack targetForAttack, in LocalTransform localTransform, in Team team, in SearchTargetRange searchTargetRange)
             {
-                if (targetForAttack.TargetTroop != Entity.Null &&
-                    LocalTransformLookup.HasComponent(targetForAttack.TargetTroop))
+                if (targetForAttack.TargetTroop != Entity.Null ||
+                    TargetCandidateTroopEntities.Length == 0)
                 {
                     return;
                 }
@@ -34,20 +35,19 @@ namespace War.Dots.Component.ComponentSystem
                 float minDistance = float.MaxValue;
                 Entity target = Entity.Null;
 
-                foreach (Entity otherEntity in TargetEntities)
+                for (int i = 0, targetCandidateTroopCount = TargetCandidateTroopEntities.Length; i < targetCandidateTroopCount; i++)
                 {
-                    if (otherEntity == entity ||
-                        TeamLookup[otherEntity].Color == team.Color)
+                    Entity targetCandidateTroopEntity = TargetCandidateTroopEntities[i];
+                    if (targetCandidateTroopEntity == entity ||
+                        TargetCandidateTroopTeams[i].Color == team.Color)
                     {
                         continue;
                     }
 
-                    float3 otherPos = LocalTransformLookup[otherEntity].Position;
-
-                    float dist = math.distance(pos, otherPos);
+                    float dist = math.distance(pos, TargetCandidateTroopTransforms[i].Position);
                     if (dist < range && dist < minDistance)
                     {
-                        target = otherEntity;
+                        target = targetCandidateTroopEntity;
                         minDistance = dist;
                     }
                 }
@@ -56,28 +56,23 @@ namespace War.Dots.Component.ComponentSystem
             }
         }
 
-        private EntityQuery _searchTargetQuery;
-        private EntityQuery _targetQuery;
 
-        private ComponentLookup<LocalTransform> _localTransformLookup;
-        private ComponentLookup<Team> _teamLookup;
+        private EntityQuery _searchTargetTroopQuery;
+        private EntityQuery _targetCandidateTroopQuery;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _searchTargetQuery =
+            _searchTargetTroopQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Troop, Alive, TroopEntity, TroopAISearchTarget, LocalTransform, Team, SearchTargetRange>()
                     .WithAllRW<TroopTargetForAttack>()
                     .Build();
 
-            _targetQuery =
+            _targetCandidateTroopQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Troop, Alive, TroopEntity, Team, LocalTransform>()
                     .Build();
-
-            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
-            _teamLookup = state.GetComponentLookup<Team>(true);
         }
 
         public void OnDestroy(ref SystemState state)
@@ -86,21 +81,26 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            _localTransformLookup.Update(ref state);
-            _teamLookup.Update(ref state);
+            JobHandle dependency = state.Dependency;
 
-            NativeArray<Entity> targetEntities = _targetQuery.ToEntityArray(Allocator.TempJob);
+            NativeArray<Entity> targetCandidateEntities = _targetCandidateTroopQuery.ToEntityArray(Allocator.TempJob);
+            NativeArray<Team> targetCandidateTroopTeams = _targetCandidateTroopQuery.ToComponentDataArray<Team>(Allocator.TempJob);
+            NativeArray<LocalTransform> targetCandidateTroopTransforms = _targetCandidateTroopQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
 
-            state.Dependency =
+            dependency =
                 new SearchTargetJob
                     {
-                        TargetEntities = targetEntities.AsReadOnly(),
-                        LocalTransformLookup = _localTransformLookup,
-                        TeamLookup = _teamLookup,
+                        TargetCandidateTroopEntities = targetCandidateEntities.AsReadOnly(),
+                        TargetCandidateTroopTeams = targetCandidateTroopTeams.AsReadOnly(),
+                        TargetCandidateTroopTransforms = targetCandidateTroopTransforms.AsReadOnly(),
                     }
-                    .ScheduleParallel(_searchTargetQuery, state.Dependency);
+                    .ScheduleParallel(_searchTargetTroopQuery, dependency);
 
-            targetEntities.Dispose(state.Dependency);
+            state.Dependency =
+                JobHandle.CombineDependencies(
+                    targetCandidateEntities.Dispose(dependency),
+                    targetCandidateTroopTeams.Dispose(dependency),
+                    targetCandidateTroopTransforms.Dispose(dependency));
         }
     }
 }

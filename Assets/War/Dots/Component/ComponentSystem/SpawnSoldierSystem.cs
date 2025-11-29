@@ -143,6 +143,8 @@ namespace War.Dots.Component.ComponentSystem
 
             #endregion
 
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new MovableChanged { IsMovable = false, IsChanged = false });
+
                 EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, soldierEntity, false);
                 EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, soldierEntity, false);
 

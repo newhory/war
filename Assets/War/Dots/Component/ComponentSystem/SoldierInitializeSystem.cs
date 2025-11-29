@@ -63,9 +63,9 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public int BlueTeamLayer;
 
 
-            private void Execute([EntityIndexInQuery] int entityIndex, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
+            private void Execute([EntityIndexInQuery] int index, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
             {
-                soldier.Id = SoldierIds[entityIndex];
+                soldier.Id = SoldierIds[index];
 
                 if (TroopEntityMap.TryGetValue(soldierAttachedTroop.TroopId, out Entity troopEntity))
                 {
