@@ -154,7 +154,7 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     ecb.AddComponent(entity, new UnityNavMeshObstacle { Obstacle = navMeshObstacle });
                     
-                    navMeshObstacle.radius = agentData.ValueRO.Radius * 0.5f;
+                    navMeshObstacle.radius = agentData.ValueRO.Radius;
                 }
             }
 
