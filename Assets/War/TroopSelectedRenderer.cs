@@ -17,8 +17,9 @@ namespace War
 
     public class TroopSelectedRenderer : MonoBehaviour
     {
-        [Header(nameof(LineRenderer))]
-        [SerializeField] private LineRenderer lineRendererPrefab;
+        [Header(nameof(LineRenderer))] [SerializeField]
+        private LineRenderer lineRendererPrefab;
+
         [SerializeField] private float widthMultiplier = 0.05f;
         [SerializeField] private int numCapVertices = 8;
         [SerializeField] private int numCornerVertices = 8;
@@ -26,22 +27,20 @@ namespace War
         [SerializeField] private Color redTeamColor = Color.red;
         [SerializeField] private Color blueTeamColor = Color.blue;
 
-        [Header("Outline Padding")]
-        [SerializeField] private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+        [Header("Outline Padding")] [SerializeField]
+        private float padding = 0.7f; // 병사들을 감싸는 여유 거리 (월드 단위)
+
         [SerializeField] private float miterLimit = 4f; // 너무 긴 miter(모서리 확장)를 제한
         [SerializeField] private int samplesPerUnit = 8; // 샘플 밀도 조절
         [SerializeField] private float height = 0.05f; // 지면 Y offset
 
-        [Header("Line")]
-        [SerializeField] private float lineTilingFactor = 0.25f;
+        [Header("Line")] [SerializeField] private float lineTilingFactor = 0.25f;
         [SerializeField] private Material lineHeadMaterial;
         [SerializeField] private float lineHeadSideLength = 1f;
 
-        [Header("Move Line")]
-        [SerializeField] private GameObject moveLinePrefab;
-        
-        [Header("Drag Line")]
-        [SerializeField] private GameObject dragLinePrefab;
+        [Header("Move Line")] [SerializeField] private GameObject moveLinePrefab;
+
+        [Header("Drag Line")] [SerializeField] private GameObject dragLinePrefab;
 
 
         private class TroopLine : IDisposable
@@ -114,14 +113,19 @@ namespace War
 
             public void Draw(Vector3 dragStartPosition, Vector3 draggingPosition, Color color, float tilingFactor = 1f)
             {
+                Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
+                if (dragDirection == Vector3.zero)
+                {
+                    return;
+                }
+                
                 _dragLineTransform.position = dragStartPosition;
 
                 Vector3 dragLineScale = _dragLineTransform.localScale;
                 float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * _dragHeadSideLength;
                 dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
                 _dragLineTransform.localScale = dragLineScale;
-
-                Vector3 dragDirection = Vector3.Normalize(draggingPosition - dragStartPosition);
+                
                 _dragLineTransform.forward = dragDirection;
 
                 _dragLineMaterial.color = color;
@@ -157,9 +161,9 @@ namespace War
             public SplineContainer SplineContainer;
             public LineRenderer LineRenderer;
             public TroopLine TroopLine;
-            public NativeArray<float2> SampledPositions;
+            public NativeList<float2> SampledPositions;
             public Vector3 TroopPosition;
-            
+
 
             public void Dispose()
             {
@@ -184,15 +188,15 @@ namespace War
                 }
             }
         }
-        
-        
+
+
         private static ObjectPool<LineRenderer> lineRendererPool;
         private static ObjectPool<SplineContainer> splineContainerPool;
         private static ObjectPool<TroopLine> troopLinePool;
-        
+
 
         private EntityManager _entityManager;
-        
+
         private Dictionary<Entity, ActiveTroopVisual> _activeSelectedTroops;
 
         private TroopLine _dragTroopLine;
@@ -201,6 +205,14 @@ namespace War
         private GameObject _dragHead;
         private Material _dragHeadMaterial;
 
+    #region buffer for TrySelectTroop
+
+        private NativeList<Entity> _unselectedTroopEntities;
+        private NativeList<float2> _hullBuffer;
+        private NativeList<float3> _knotBuffer;
+        private NativeList<Vector3> _lineRendererPositionBuffer;
+
+    #endregion
 
         private void Awake()
         {
@@ -245,6 +257,34 @@ namespace War
             _activeSelectedTroops = new Dictionary<Entity, ActiveTroopVisual>();
 
             _dragTroopLine = new TroopLine(dragLinePrefab, lineHeadSideLength, lineHeadMaterial);
+
+            _unselectedTroopEntities = new NativeList<Entity>(Allocator.Persistent);
+            _hullBuffer = new NativeList<float2>(Allocator.Persistent);
+            _knotBuffer = new NativeList<float3>(Allocator.Persistent);
+            _lineRendererPositionBuffer = new NativeList<Vector3>(Allocator.Persistent);
+        }
+
+        private void OnDestroy()
+        {
+            if (_unselectedTroopEntities.IsCreated)
+            {
+                _unselectedTroopEntities.Dispose();
+            }
+
+            if (_hullBuffer.IsCreated)
+            {
+                _hullBuffer.Dispose();
+            }
+
+            if (_knotBuffer.IsCreated)
+            {
+                _knotBuffer.Dispose();
+            }
+
+            if (_lineRendererPositionBuffer.IsCreated)
+            {
+                _lineRendererPositionBuffer.Dispose();
+            }
         }
 
         private void Update()
@@ -259,7 +299,7 @@ namespace War
                     typeof(Team),
                     typeof(TroopAABB));
 
-            using NativeList<Entity> unselectedTroopEntities = new(Allocator.Temp);
+            _unselectedTroopEntities.Clear();
 
             if (!selectedTroopQuery.IsEmpty)
             {
@@ -302,7 +342,7 @@ namespace War
                 {
                     if (!selectedTroopEntities.Contains(currentSelectedEntity))
                     {
-                        unselectedTroopEntities.Add(currentSelectedEntity);
+                        _unselectedTroopEntities.Add(currentSelectedEntity);
                     }
                 }
             }
@@ -310,11 +350,11 @@ namespace War
             {
                 foreach (Entity currentSelectedEntity in _activeSelectedTroops.AsValueEnumerable().Select(kvp => kvp.Key))
                 {
-                    unselectedTroopEntities.Add(currentSelectedEntity);
+                    _unselectedTroopEntities.Add(currentSelectedEntity);
                 }
             }
 
-            foreach (Entity unselectedEntity in unselectedTroopEntities)
+            foreach (Entity unselectedEntity in _unselectedTroopEntities)
             {
                 RestoreTroopSelected(unselectedEntity);
             }
@@ -381,7 +421,7 @@ namespace War
             {
                 return;
             }
-            
+
             activeTroopVisual.Dispose();
 
             _activeSelectedTroops.Remove(troopEntity);
@@ -414,29 +454,37 @@ namespace War
             activeTroopVisual.FrameCountUpdated = frameCount;
 
             // 1) hull 점들을 float2 리스트로 수집 (XZ)
-            NativeArray<float2> hull = new(hullPointCount, Allocator.Temp);
+            _hullBuffer.Clear();
             for (int i = 0; i < hullPointCount; ++i)
             {
-                hull[i] = troopHullPoints[i].Position;
+                _hullBuffer.Add(troopHullPoints[i].Position);
             }
 
             // 2) centroid 계산 (노멀 방향 판정용)
             float2 centroid = float2.zero;
             for (int i = 0; i < hullPointCount; ++i)
             {
-                centroid += hull[i];
+                centroid += _hullBuffer[i];
             }
 
             centroid /= hullPointCount;
 
+            if (!activeTroopVisual.SampledPositions.IsCreated)
+            {
+                activeTroopVisual.SampledPositions = new NativeList<float2>(Allocator.Persistent);
+            }
+            else
+            {
+                activeTroopVisual.SampledPositions.Clear();
+            }
+
             // 3) 각 정점에 대해 vertex normal 계산 -> outward 보정 -> padding 적용
-            NativeArray<float2> sampledPositions = activeTroopVisual.SampledPositions = new NativeArray<float2>(hullPointCount, Allocator.Domain);
-            NativeArray<float3> knotArray = new(hullPointCount, Allocator.Temp);
+            _knotBuffer.Clear();
             for (int i = 0; i < hullPointCount; ++i)
             {
-                float2 prev = hull[(i - 1 + hullPointCount) % hullPointCount];
-                float2 curr = hull[i];
-                float2 next = hull[(i + 1) % hullPointCount];
+                float2 prev = _hullBuffer[(i - 1 + hullPointCount) % hullPointCount];
+                float2 curr = _hullBuffer[i];
+                float2 next = _hullBuffer[(i + 1) % hullPointCount];
 
                 float2 dir1 = math.normalize(curr - prev);
                 float2 dir2 = math.normalize(next - curr);
@@ -482,8 +530,8 @@ namespace War
 
                 float2 padded = curr + vnormal * appliedOffset;
 
-                sampledPositions[i] = padded;
-                knotArray[i] = new float3(padded.x, height, padded.y);
+                activeTroopVisual.SampledPositions.Add(padded);
+                _knotBuffer.Add(new float3(padded.x, height, padded.y));
             }
 
             activeTroopVisual.LineRenderer ??= lineRendererPool.Get();
@@ -492,22 +540,23 @@ namespace War
             activeTroopVisual.TroopPosition.y = height;
 
             // build spline (closed loop)
-            Spline spline = new(knotArray.Length, closed: true);
-            foreach (float3 knot in knotArray)
+            Spline spline = activeTroopVisual.SplineContainer.Spline ??= new Spline();
+            spline.Clear();
+            spline.Closed = true;
+
+            foreach (float3 knot in _knotBuffer)
             {
                 spline.Add(knot);
             }
-
-            activeTroopVisual.SplineContainer.Spline = spline;
 
             // Optional: tweak tangents/tension for Catmull-Rom feel
             // SplineUtility provides helpers (you can set tangent modes or call smoothing ops if needed)
 
             // compute approximate spline length (or rely on points count), then sample positions
-            float approxLength = EstimateApproxLength(knotArray.AsReadOnly());
+            float approxLength = EstimateApproxLength(_knotBuffer.AsReadOnly());
             int totalSamples = math.max(4, (int)(approxLength * samplesPerUnit));
 
-            NativeArray<Vector3> positions = new(totalSamples + 1, Allocator.Temp);
+            _lineRendererPositionBuffer.Clear();
             for (int j = 0; j <= totalSamples; ++j)
             {
                 float t = j / (float)totalSamples;
@@ -516,19 +565,15 @@ namespace War
                 float3 localPos = activeTroopVisual.SplineContainer.Spline.EvaluatePosition(t);
                 Vector3 worldPos = activeTroopVisual.SplineContainer.transform.TransformPoint(new Vector3(localPos.x, localPos.y, localPos.z));
 
-                positions[j] = worldPos;
+                _lineRendererPositionBuffer.Add(worldPos);
             }
 
             // assign to LineRenderer
-            activeTroopVisual.LineRenderer.positionCount = positions.Length;
-            activeTroopVisual.LineRenderer.SetPositions(positions);
+            activeTroopVisual.LineRenderer.positionCount = _lineRendererPositionBuffer.Length;
+            activeTroopVisual.LineRenderer.SetPositions(_lineRendererPositionBuffer.AsArray());
 
             activeTroopVisual.LineRenderer.startColor = lineColor;
             activeTroopVisual.LineRenderer.endColor = lineColor;
-
-            positions.Dispose();
-            knotArray.Dispose();
-            hull.Dispose();
 
             return true;
         }
@@ -570,109 +615,6 @@ namespace War
                 troopLine.Draw(startPosition, endPosition, lineColor, lineTilingFactor);
             }
         }
-
-        private static float2 ComputeCentroid(in NativeArray<float2> poly)
-        {
-            int polyCount = poly.Length;
-
-            float cx = 0f, cy = 0f;
-            for (int i = 0; i < polyCount; ++i)
-            {
-                cx += poly[i].x;
-                cy += poly[i].y;
-            }
-
-            return new float2(cx / polyCount, cy / polyCount);
-        }
-
-        public static NativeArray<float2> MakePolygonMoreCircular(in NativeArray<float2> poly, Allocator allocator, float radialBlend = 0.4f)
-        {
-            int polyCount = poly.Length;
-
-            NativeArray<float2> outPoly = new(polyCount, allocator, NativeArrayOptions.UninitializedMemory);
-
-            if (polyCount < 3)
-            {
-                outPoly.CopyFrom(poly);
-
-                return outPoly;
-            }
-
-            // compute centroid
-            float2 centroid = ComputeCentroid(poly);
-
-            // compute radii and average radius
-            NativeArray<float> radii = new(polyCount, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-            float sum = 0f;
-            for (int i = 0; i < polyCount; ++i)
-            {
-                radii[i] = math.distance(poly[i], centroid);
-                sum += radii[i];
-            }
-
-            float avg = sum / polyCount;
-            if (avg <= 1e-6f)
-            {
-                outPoly.CopyFrom(poly);
-
-                return outPoly; // degenerate
-            }
-
-            // create output
-            for (int i = 0; i < polyCount; ++i)
-            {
-                float2 dir = poly[i] - centroid;
-
-                // if exactly at centroid, nudge outward to avoid zero-length dir
-                dir = math.lengthsq(dir) < 1e-9f ? new float2(1f, 0f) : math.normalize(dir);
-
-                float newR = math.lerp(radii[i], avg, math.clamp(radialBlend, 0f, 1f));
-
-                outPoly[i] = centroid + dir * newR;
-            }
-
-            radii.Dispose();
-
-            return outPoly;
-        }
-
-        public static NativeArray<float2> ChaikinSmooth(in NativeArray<float2> points, Allocator allocator, int iterations = 1)
-        {
-            NativeArray<float2> output = new(points, allocator);
-
-            int pointCount = points.Length;
-            if (pointCount < 3)
-            {
-                return output;
-            }
-
-            NativeList<float2> smoothed = new(Allocator.Temp);
-
-            for (int it = 0; it < iterations; it++)
-            {
-                for (int i = 0; i < output.Length; i++)
-                {
-                    float2 p0 = output[i];
-                    float2 p1 = output[(i + 1) % output.Length]; // closed loop
-
-                    float2 Q = math.lerp(p0, p1, 0.25f); // 25%
-                    float2 R = math.lerp(p0, p1, 0.75f); // 75%
-
-                    smoothed.Add(Q);
-                    smoothed.Add(R);
-                }
-
-                output.Dispose();
-                output = smoothed.ToArray(allocator);
-
-                smoothed.Clear();
-            }
-
-            smoothed.Dispose();
-
-            return output;
-        }
-
 
         private static float EstimateApproxLength(NativeArray<float3>.ReadOnly pts)
         {
