@@ -170,7 +170,8 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         float3 pressStartPosition = onPressStartRaycastHit.Position;
 
-                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, pressStartPosition);
+                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onPressStartRaycastHit);
+
                         if (CurrentSelectedEntity != currentPickedTroop)
                         {
                             if (CurrentSelectedEntity != Entity.Null)
@@ -218,7 +219,8 @@ namespace War.Dots.Component.ComponentSystem
                         state.EntityManager.SetComponentEnabled<DraggingWorldPosition>(PointInput, true);
                         state.EntityManager.SetComponentData(PointInput, new DraggingWorldPosition { Position = onDraggingRaycastHit.Position });
 
-                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDraggingRaycastHit.Position);
+                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDraggingRaycastHit);
+
                         if (CurrentSelectedEntity != currentPickedTroop)
                         {
                             if (CurrentTargetCandidateEntity != currentPickedTroop)
@@ -271,7 +273,8 @@ namespace War.Dots.Component.ComponentSystem
                         state.EntityManager.SetComponentEnabled<DragEndWorldPosition>(PointInput, true);
                         state.EntityManager.SetComponentData(PointInput, new DragEndWorldPosition { Position = onDragEndRaycastHit.Position });
 
-                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDragEndRaycastHit.Position);
+                        (Entity currentPickedTroop, TeamColor teamColor) = GetPickedTroop(ref state, onDragEndRaycastHit);
+                        
                         if (CurrentSelectedEntity != currentPickedTroop)
                         {
                             if (currentPickedTroop == Entity.Null) // CurrentSelectedEntity is not Null
@@ -319,6 +322,18 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnStopRunning(ref SystemState state)
         {
+        }
+
+        private (Entity, TeamColor) GetPickedTroop(ref SystemState state, in RaycastHit raycastHit)
+        {
+            if (state.EntityManager.HasComponent<SoldierAttachedTroop>(raycastHit.Entity))
+            {
+                SoldierAttachedTroop soldierAttachedTroop = state.EntityManager.GetComponentData<SoldierAttachedTroop>(raycastHit.Entity);
+
+                return (soldierAttachedTroop.TroopEntity, state.EntityManager.GetComponentData<Team>(raycastHit.Entity).Color);
+            }
+
+            return GetPickedTroop(ref state, raycastHit.Position);
         }
 
         private (Entity, TeamColor) GetPickedTroop(ref SystemState state, float3 worldPosition)

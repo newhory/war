@@ -44,12 +44,12 @@ namespace War.Dots.Component.ComponentSystem
                 } while (TroopSoldierLookup.TryGetNextValue(out value, ref iterator));
             }
         }
-        
+
         [BurstCompile]
         private partial struct RemoveDeadTroopJob : IJobEntity
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
-            
+
             [ReadOnly] public double CurrentTime;
 
 
@@ -58,7 +58,7 @@ namespace War.Dots.Component.ComponentSystem
                 if (troopSoldierBuffer.IsEmpty)
                 {
                     EntityCommandBuffer.SetComponentEnabled<Alive>(index, troopEntity, false);
-                    
+
                     EntityCommandBuffer.AddComponent(index, troopEntity, new DestroyOn { DestroyTime = CurrentTime });
                 }
             }
@@ -90,13 +90,46 @@ namespace War.Dots.Component.ComponentSystem
                     switch (troopSoldierCount)
                     {
                         case 1:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[0].Position.xz });
+                        {
+                            float2 pos0 = troopSoldierBuffer[0].Position.xz;
+                            float padding = troopAABB.Padding + 0.25f;
+
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float2(pos0.x - padding, pos0.y) });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float2(pos0.x, pos0.y + padding) });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float2(pos0.x + padding, pos0.y) });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = new float2(pos0.x, pos0.y - padding) });
                             break;
+                        }
 
                         case 2:
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[0].Position.xz });
-                            troopHullPointBuffer.Add(new TroopHullPoint { Position = troopSoldierBuffer[1].Position.xz });
+                        {
+                            float2 pos0 = troopSoldierBuffer[0].Position.xz;
+                            float2 pos1 = troopSoldierBuffer[1].Position.xz;
+                            float2 left, right, dir;
+
+                            if (pos0.x < pos1.x)
+                            {
+                                (left, right) = (pos0, pos1);
+                                dir = math.normalize(pos1 - pos0);
+                            }
+                            else
+                            {
+                                (left, right) = (pos1, pos0);
+                                dir = math.normalize(pos0 - pos1);
+                            }
+
+                            float2 center = (pos0 + pos1) * 0.5f;
+                            float2 up = new(dir.y, -dir.x);
+                            float2 down = -up;
+                            float padding = troopAABB.Padding + 0.25f;
+
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = left - dir * padding });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = center + up * padding });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = right + dir * padding });
+                            troopHullPointBuffer.Add(new TroopHullPoint { Position = center + down * padding });
+
                             break;
+                        }
                     }
                 }
                 else
@@ -251,9 +284,9 @@ namespace War.Dots.Component.ComponentSystem
                         TroopSoldierLookup = troopSoldierLookup.AsReadOnly()
                     }
                     .ScheduleParallel(_troopQuery, dependency);
-            
+
             EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
-            
+
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
             dependency = new RemoveDeadTroopJob { EntityCommandBuffer = ecb.AsParallelWriter(), CurrentTime = SystemAPI.Time.ElapsedTime }.Schedule(_troopQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
