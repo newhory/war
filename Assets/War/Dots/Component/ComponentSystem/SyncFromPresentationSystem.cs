@@ -10,6 +10,9 @@ using UnityEngine.AI;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    /// <summary>
+    /// Sync <see cref="UnityEngine.AI.NavMeshAgent"/> / <see cref="UnityEngine.AI.NavMeshObstacle"/> -> <see cref="Unity.Entities.IComponentData"/>.
+    /// </summary>
     [UpdateInGroup(typeof(Group.FirstUpdateGroup))]
     [UpdateBefore(typeof(SoldierSpatialHashMapBuildSystem))]
     [RequireMatchingQueriesForUpdate]

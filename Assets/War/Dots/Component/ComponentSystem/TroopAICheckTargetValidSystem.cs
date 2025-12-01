@@ -18,7 +18,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            public void Execute(ref TroopTargetForAttack targetForAttack)
+            private void Execute(ref TroopTargetForAttack targetForAttack)
             {
                 if (targetForAttack.TargetTroop == Entity.Null)
                 {

@@ -18,6 +18,9 @@ namespace War.Dots.Component
     public struct TroopTargetForAttack : IComponentData
     {
         public Entity TargetTroop;
+        public Entity OldTargetTroop;
+
+        public bool IsTargetChanged;
     }
 
     public struct TroopAISearchTarget : IComponentData, IEnableableComponent

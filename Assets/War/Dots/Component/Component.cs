@@ -43,9 +43,9 @@ namespace War.Dots.Component
     public struct MoveSpeed : IComponentData
     {
         public float Current;
+        public float OldCurrent;
         
         public float Max;
-        
         public float CurrentMax;
         public float OldMax;
     }

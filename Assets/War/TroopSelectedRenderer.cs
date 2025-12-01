@@ -150,7 +150,7 @@ namespace War
             }
         }
 
-        private class ActiveTroopVisual
+        private class ActiveTroopVisual : IDisposable
         {
             public int FrameCountUpdated;
 
@@ -159,13 +159,40 @@ namespace War
             public TroopLine TroopLine;
             public NativeArray<float2> SampledPositions;
             public Vector3 TroopPosition;
+            
+
+            public void Dispose()
+            {
+                if (LineRenderer)
+                {
+                    lineRendererPool.Release(LineRenderer);
+                }
+
+                if (SplineContainer)
+                {
+                    splineContainerPool.Release(SplineContainer);
+                }
+
+                if (TroopLine is not null)
+                {
+                    troopLinePool.Release(TroopLine);
+                }
+
+                if (SampledPositions.IsCreated)
+                {
+                    SampledPositions.Dispose();
+                }
+            }
         }
+        
+        
+        private static ObjectPool<LineRenderer> lineRendererPool;
+        private static ObjectPool<SplineContainer> splineContainerPool;
+        private static ObjectPool<TroopLine> troopLinePool;
+        
 
         private EntityManager _entityManager;
-
-        private ObjectPool<LineRenderer> _lineRendererPool;
-        private ObjectPool<SplineContainer> _splineContainerPool;
-        private ObjectPool<TroopLine> _troopLinePool;
+        
         private Dictionary<Entity, ActiveTroopVisual> _activeSelectedTroops;
 
         private TroopLine _dragTroopLine;
@@ -179,7 +206,7 @@ namespace War
         {
             _entityManager = World.DefaultGameObjectInjectionWorld.EntityManager;
 
-            _lineRendererPool =
+            lineRendererPool ??=
                 new ObjectPool<LineRenderer>(
                     createFunc: () =>
                     {
@@ -198,7 +225,7 @@ namespace War
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 1);
 
-            _splineContainerPool =
+            splineContainerPool ??=
                 new ObjectPool<SplineContainer>(
                     createFunc: () => new GameObject().AddComponent<SplineContainer>(),
                     actionOnGet: splineContainer => splineContainer.gameObject.SetActive(true),
@@ -207,7 +234,7 @@ namespace War
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 1);
 
-            _troopLinePool =
+            troopLinePool ??=
                 new ObjectPool<TroopLine>(
                     createFunc: () => new TroopLine(moveLinePrefab, lineHeadSideLength, lineHeadMaterial),
                     actionOnRelease: line => line.Hide(),
@@ -304,7 +331,7 @@ namespace War
                 TroopTargetForAttack targetForAttack = _entityManager.GetComponentData<TroopTargetForAttack>(selectedTroopEntity);
                 if (_activeSelectedTroops.TryGetValue(targetForAttack.TargetTroop, out ActiveTroopVisual targetTroopVisual))
                 {
-                    currentSelectedTroopVisual.TroopLine ??= _troopLinePool.Get();
+                    currentSelectedTroopVisual.TroopLine ??= troopLinePool.Get();
 
                     DrawTroopLine(currentSelectedTroopVisual.TroopLine, targetTroopVisual.TroopPosition, currentSelectedTroopVisual, targetTroopVisual, lineColor);
                 }
@@ -314,7 +341,7 @@ namespace War
                     Vector3 destinationPosition = destination.Position;
                     destinationPosition.y = height;
 
-                    currentSelectedTroopVisual.TroopLine ??= _troopLinePool.Get();
+                    currentSelectedTroopVisual.TroopLine ??= troopLinePool.Get();
 
                     DrawTroopLine(currentSelectedTroopVisual.TroopLine, destinationPosition, currentSelectedTroopVisual, null, lineColor);
                 }
@@ -354,26 +381,8 @@ namespace War
             {
                 return;
             }
-
-            if (activeTroopVisual.LineRenderer)
-            {
-                _lineRendererPool.Release(activeTroopVisual.LineRenderer);
-            }
-
-            if (activeTroopVisual.SplineContainer)
-            {
-                _splineContainerPool.Release(activeTroopVisual.SplineContainer);
-            }
-
-            if (activeTroopVisual.TroopLine is not null)
-            {
-                _troopLinePool.Release(activeTroopVisual.TroopLine);
-            }
-
-            if (activeTroopVisual.SampledPositions.IsCreated)
-            {
-                activeTroopVisual.SampledPositions.Dispose();
-            }
+            
+            activeTroopVisual.Dispose();
 
             _activeSelectedTroops.Remove(troopEntity);
         }
@@ -477,8 +486,8 @@ namespace War
                 knotArray[i] = new float3(padded.x, height, padded.y);
             }
 
-            activeTroopVisual.LineRenderer ??= _lineRendererPool.Get();
-            activeTroopVisual.SplineContainer ??= _splineContainerPool.Get();
+            activeTroopVisual.LineRenderer ??= lineRendererPool.Get();
+            activeTroopVisual.SplineContainer ??= splineContainerPool.Get();
             activeTroopVisual.TroopPosition = _entityManager.GetComponentData<TroopAABB>(selectedTroopEntity).Center.xxy;
             activeTroopVisual.TroopPosition.y = height;
 

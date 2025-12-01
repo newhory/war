@@ -21,7 +21,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity, ref Destination moveToDestination, in TroopTargetForAttack targetForAttack)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, ref Destination moveToDestination, ref TroopTargetForAttack targetForAttack)
             {
                 if (targetForAttack.TargetTroop != Entity.Null)
                 {
@@ -42,6 +42,17 @@ namespace War.Dots.Component.ComponentSystem
 
                     EntityCommandBuffer.SetComponentEnabled<TroopStateMoveToTarget>(index, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<TroopStateMoveToDestination>(index, entity, true);
+                }
+
+                if (targetForAttack.TargetTroop != targetForAttack.OldTargetTroop)
+                {
+                    targetForAttack.OldTargetTroop = targetForAttack.TargetTroop;
+
+                    targetForAttack.IsTargetChanged = true;
+                }
+                else
+                {
+                    targetForAttack.IsTargetChanged = false;
                 }
             }
         }
@@ -103,7 +114,8 @@ namespace War.Dots.Component.ComponentSystem
                     return;
                 }
 
-                if (soldierTargetForAttack.TargetSoldier != Entity.Null)
+                if (!troopTargetForAttack.ValueRO.IsTargetChanged &&
+                    soldierTargetForAttack.TargetSoldier != Entity.Null)
                 {
                     return;
                 }

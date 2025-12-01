@@ -29,14 +29,8 @@ namespace War.Dots.Component.ComponentSystem
             foreach (
                 var (animationState, moveSpeed, viewAnimator)
                 in
-                SystemAPI.Query<RefRW<SoldierAnimation>, RefRO<MoveSpeed>, RefRO<UnityAnimator>>())
+                SystemAPI.Query<RefRW<SoldierAnimation>, RefRW<MoveSpeed>, RefRO<UnityAnimator>>())
             {
-                Animator animator = viewAnimator.ValueRO.Animator;
-                if (!animator)
-                {
-                    continue;
-                }
-
                 SoldierAnimation.State current = animationState.ValueRO.Current;
                 SoldierAnimation.State next = animationState.ValueRO.Next;
 
@@ -44,9 +38,26 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     if (current == SoldierAnimation.State.Default)
                     {
-                        animator.SetFloat(s_speed, moveSpeed.ValueRO.Current / moveSpeed.ValueRO.Max);
+                        MoveSpeed moveSpeedValue = moveSpeed.ValueRO;
+                        
+                        if (!Mathf.Approximately(moveSpeedValue.Current, moveSpeedValue.OldCurrent))
+                        {
+                            Animator currentAnimator = viewAnimator.ValueRO.Animator;
+                            if (currentAnimator)
+                            {
+                                currentAnimator.SetFloat(s_speed, moveSpeedValue.Current / moveSpeedValue.Max);
+                            }
+                            
+                            moveSpeed.ValueRW.OldCurrent = moveSpeedValue.Current;
+                        }
                     }
 
+                    continue;
+                }
+                
+                Animator animator = viewAnimator.ValueRO.Animator;
+                if (!animator)
+                {
                     continue;
                 }
 
@@ -86,7 +97,13 @@ namespace War.Dots.Component.ComponentSystem
 
                 if (next == SoldierAnimation.State.Default)
                 {
-                    animator.SetFloat(s_speed, moveSpeed.ValueRO.Current / moveSpeed.ValueRO.Max);
+                    MoveSpeed moveSpeedValue = moveSpeed.ValueRO;
+                    if (!Mathf.Approximately(moveSpeedValue.Current, moveSpeedValue.OldCurrent))
+                    {
+                        animator.SetFloat(s_speed, moveSpeedValue.Current / moveSpeedValue.Max);
+                        
+                        moveSpeed.ValueRW.OldCurrent = moveSpeedValue.Current;
+                    }
                 }
             }
         }

@@ -9,6 +9,9 @@ using ZLinq;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    /// <summary>
+    /// Sync <see cref="Unity.Transforms.LocalTransform"/> -> <see cref="UnityEngine.Transform"/>.
+    /// </summary>
     [UpdateInGroup(typeof(Group.ViewSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SyncUnityTransformSystem : ISystem

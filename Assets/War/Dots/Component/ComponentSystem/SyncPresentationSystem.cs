@@ -5,6 +5,9 @@ using UnityEngine.AI;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    /// <summary>
+    /// Sync <see cref="Unity.Entities.IComponentData"/> -> <see cref="UnityEngine.AI.NavMeshAgent"/> / <see cref="UnityEngine.AI.NavMeshObstacle"/>.
+    /// </summary>
     [UpdateInGroup(typeof(Group.ViewSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SyncPresentationSystem : ISystem
@@ -76,19 +79,19 @@ namespace War.Dots.Component.ComponentSystem
                     .WithChangeFilter<Destination>())
             {
                 bool isSpeedChanged = false;
-
-                if (!Mathf.Approximately(moveSpeed.ValueRO.CurrentMax, moveSpeed.ValueRO.OldMax))
+                MoveSpeed moveSpeedValue = moveSpeed.ValueRO;
+                if (!Mathf.Approximately(moveSpeedValue.CurrentMax, moveSpeedValue.OldMax))
                 {
-                    moveSpeed.ValueRW.OldMax = moveSpeed.ValueRO.CurrentMax;
+                    moveSpeed.ValueRW.OldMax = moveSpeedValue.CurrentMax;
 
                     isSpeedChanged = true;
                 }
 
                 bool isDestinationChanged = false;
-
-                if (!mathf.Approximately(destination.ValueRO.Position.xz, destination.ValueRO.OldPosition.xz))
+                Destination destinationValue = destination.ValueRO;
+                if (!mathf.Approximately(destinationValue.Position.xz, destinationValue.OldPosition.xz))
                 {
-                    destination.ValueRW.OldPosition = destination.ValueRO.Position;
+                    destination.ValueRW.OldPosition = destinationValue.Position;
 
                     isDestinationChanged = true;
                 }
@@ -100,12 +103,12 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         if (isSpeedChanged)
                         {
-                            agent.speed = moveSpeed.ValueRO.CurrentMax;
+                            agent.speed = moveSpeedValue.CurrentMax;
                         }
 
                         if (isDestinationChanged)
                         {
-                            agent.destination = destination.ValueRO.Position;
+                            agent.destination = destinationValue.Position;
                         }
                     }
                 }
@@ -119,10 +122,10 @@ namespace War.Dots.Component.ComponentSystem
                     .WithChangeFilter<Forward>())
             {
                 bool isForwardChanged = false;
-
-                if (!mathf.Approximately(forward.ValueRO.Value, forward.ValueRO.OldValue))
+                Forward forwardValue = forward.ValueRO;
+                if (!mathf.Approximately(forwardValue.Value, forwardValue.OldValue))
                 {
-                    forward.ValueRW.OldValue = forward.ValueRO.Value;
+                    forward.ValueRW.OldValue = forwardValue.Value;
 
                     isForwardChanged = true;
                 }
@@ -132,7 +135,7 @@ namespace War.Dots.Component.ComponentSystem
                     NavMeshObstacle obstacle = unityNavMeshObstacle.ValueRO.Obstacle;
                     if (obstacle)
                     {
-                        obstacle.transform.forward = forward.ValueRO.Value;
+                        obstacle.transform.forward = forwardValue.Value;
                     }
                 }
             }
