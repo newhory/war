@@ -150,6 +150,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityManager.DestroyEntity(_allArmyQuery);
 
                 SoldierAddPresentationSystem.ResetPool();
+                SoldierAddPresentationForNavigationSystem.ResetPool();
 #if HYBRID_ARROW
                 ArrowAddPresentationSystem.ResetPool();
 #endif

@@ -1,18 +1,40 @@
 ﻿using System.Collections.Generic;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
-using UnityEngine.AI;
 using UnityEngine.Pool;
 using ZLinq;
 
 
 namespace War.Dots.Component.ComponentSystem
 {
+    using Navigation;
+
+
     [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
-    public partial class SoldierAddPresentationSystem : SystemBase
+    public partial class SoldierAddPresentationForNavigationSystem : SystemBase
     {
+        private partial struct AddComponentJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+
+            private void Execute([EntityIndexInQuery] int index, Entity entity, in LocalTransform localTransform, in Velocity velocity, in Destination destination, in NavMeshAgentData navMeshAgentData, in MoveSpeed moveSpeed)
+            {
+                EntityCommandBuffer.AddComponent(index, entity, new UnitPosition { Value = localTransform.Position });
+                EntityCommandBuffer.AddComponent(index, entity, new UnitVelocity { Value = velocity.Value });
+                EntityCommandBuffer.AddComponent(index, entity, new UnitDestination { Value = destination.Position, FlowFieldId = -1 });
+                EntityCommandBuffer.AddComponent(index, entity, new UnitRadius { Value = navMeshAgentData.Radius });
+                EntityCommandBuffer.AddComponent(index, entity, new UnitMaxSpeed { Value = moveSpeed.CurrentMax });
+                EntityCommandBuffer.AddComponent(index, entity, new StandingObstacle());
+                EntityCommandBuffer.AddComponent(index, entity, new UnitPreferredSide());
+                EntityCommandBuffer.AddComponent(index, entity, new BlockAhead());
+                EntityCommandBuffer.AddComponent(index, entity, new StandingCooldown());
+            }
+        }
+
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_blueTeamSoldierViewPool;
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_redTeamSoldierViewPool;
 
@@ -79,8 +101,20 @@ namespace War.Dots.Component.ComponentSystem
                 defaultCapacity: 10);
 
 
-        protected override void OnStartRunning() => InitPool();
-        protected override void OnDestroy() => DisposePool();
+        private EntityQuery _soldierForUnitQuery;
+
+
+        protected override void OnCreate()
+        {
+            _soldierForUnitQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<Soldier, Alive, LocalTransform, Velocity, Destination, NavMeshAgentData, MoveSpeed>()
+                    .WithAll<NavigationAPI>()
+                    .WithNone<UnitPosition, UnitVelocity, UnitDestination>()
+                    .WithNone<UnitRadius, UnitMaxSpeed, StandingObstacle>()
+                    .WithNone<UnitPreferredSide, BlockAhead, StandingCooldown>()
+                    .Build();
+        }
 
         protected override void OnUpdate()
         {
@@ -92,8 +126,8 @@ namespace War.Dots.Component.ComponentSystem
                 in
                 SystemAPI.Query<RefRO<Soldier>, RefRO<Team>, RefRO<LocalTransform>, RefRO<Forward>, RefRO<NavMeshAgentData>, RefRO<Acceleration>>()
                     .WithAll<Alive>()
-                    .WithNone<UnityAnimator, UnityNavMeshAgent, UnityNavMeshObstacle>()
-                    .WithSharedComponentFilter(new NavigationAPI { Type = NavigationType.NavMesh })
+                    .WithNone<UnityTransform, UnityAnimator>()
+                    .WithSharedComponentFilter(new NavigationAPI { Type = NavigationType.Custom })
                     .WithEntityAccess())
             {
                 Dictionary<SoldierType, ObjectPool<GameObject>> soldierViewPool =
@@ -131,32 +165,8 @@ namespace War.Dots.Component.ComponentSystem
                 {
                     ecb.AddComponent(entity, new UnityAnimator { Animator = animator });
                 }
-                
-                if (!gameObject.TryGetComponent(out NavMeshAgent navMeshAgent))
-                {
-                    navMeshAgent = gameObject.GetComponentInChildren<NavMeshAgent>();
-                }
 
-                if (navMeshAgent)
-                {
-                    ecb.AddComponent(entity, new UnityNavMeshAgent { Agent = navMeshAgent });
-
-                    navMeshAgent.updateRotation = true;
-                    navMeshAgent.radius = agentData.ValueRO.Radius;
-                    navMeshAgent.acceleration = acceleration.ValueRO.Max;
-                }
-
-                if (!gameObject.TryGetComponent(out NavMeshObstacle navMeshObstacle))
-                {
-                    navMeshObstacle = gameObject.GetComponentInChildren<NavMeshObstacle>();
-                }
-
-                if (navMeshObstacle)
-                {
-                    ecb.AddComponent(entity, new UnityNavMeshObstacle { Obstacle = navMeshObstacle });
-
-                    navMeshObstacle.radius = agentData.ValueRO.Radius;
-                }
+                ecb.AddComponent(entity, new UnityTransform { Transform = pooledTransform });
             }
 
             foreach (var (entity, pooledGameObjectComponent) in _pooledGameObjectBuffer)
@@ -165,6 +175,19 @@ namespace War.Dots.Component.ComponentSystem
             }
 
             _pooledGameObjectBuffer.Clear();
+
+            JobHandle dependency = Dependency;
+
+            _soldierForUnitQuery.SetSharedComponentFilter(new NavigationAPI { Type = NavigationType.Custom });
+
+            ecb = ecbSystem.CreateCommandBuffer();
+            dependency = new AddComponentJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_soldierForUnitQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            Dependency = dependency;
         }
+
+        protected override void OnStartRunning() => InitPool();
+        protected override void OnDestroy() => DisposePool();
     }
 }

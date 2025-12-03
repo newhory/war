@@ -1,7 +1,6 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -15,7 +14,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct CheckTargetValidJob : IJobEntity
         {
-            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
+            [ReadOnly] public ComponentLookup<Alive> AliveLookup;
 
 
             private void Execute(ref TroopTargetForAttack targetForAttack)
@@ -25,7 +24,8 @@ namespace War.Dots.Component.ComponentSystem
                     return;
                 }
 
-                if (!LocalTransformLookup.EntityExists(targetForAttack.TargetTroop))
+                if (!AliveLookup.HasComponent(targetForAttack.TargetTroop) ||
+                    !AliveLookup.IsComponentEnabled(targetForAttack.TargetTroop))
                 {
                     targetForAttack.TargetTroop = Entity.Null;
                 }
@@ -34,7 +34,7 @@ namespace War.Dots.Component.ComponentSystem
 
 
         private EntityQuery _checkTargetValidQuery;
-        private ComponentLookup<LocalTransform> _localTransformLookup;
+        private ComponentLookup<Alive> _aliveLookup;
 
 
         public void OnCreate(ref SystemState state)
@@ -45,7 +45,7 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAllRW<TroopTargetForAttack>()
                     .Build();
 
-            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
+            _aliveLookup = state.GetComponentLookup<Alive>(true);
         }
         
         public void OnDestroy(ref SystemState state)
@@ -54,9 +54,9 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            _localTransformLookup.Update(ref state);
+            _aliveLookup.Update(ref state);
 
-            state.Dependency = new CheckTargetValidJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_checkTargetValidQuery, state.Dependency);
+            state.Dependency = new CheckTargetValidJob { AliveLookup = _aliveLookup }.ScheduleParallel(_checkTargetValidQuery, state.Dependency);
         }
     }
 }
