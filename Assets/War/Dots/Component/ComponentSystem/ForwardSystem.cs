@@ -6,6 +6,9 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    using Navigation;
+    
+    
     [UpdateInGroup(typeof(Group.UpdatePositionSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct ForwardSystem : ISystem

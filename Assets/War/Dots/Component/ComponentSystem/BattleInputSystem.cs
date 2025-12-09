@@ -3,6 +3,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
+using Unity.Transforms;
 using ZLinq;
 
 
@@ -174,9 +175,13 @@ namespace War.Dots.Component.ComponentSystem
 
                         if (CurrentSelectedEntity != currentPickedTroop)
                         {
-                            if (CurrentSelectedEntity != Entity.Null)
+                            if (CurrentSelectedEntity != Entity.Null && state.EntityManager.Exists(CurrentSelectedEntity))
                             {
                                 state.EntityManager.SetComponentEnabled<TroopSelected>(CurrentSelectedEntity, false);
+                            }
+                            else
+                            {
+                                CurrentTargetCandidateEntity = Entity.Null;
                             }
 
                             if (currentPickedTroop != Entity.Null)
@@ -280,7 +285,17 @@ namespace War.Dots.Component.ComponentSystem
                             if (currentPickedTroop == Entity.Null) // CurrentSelectedEntity is not Null
                             {
                                 state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
+
+                                var troopTransform = state.EntityManager.GetComponentData<LocalTransform>(CurrentSelectedEntity);
                                 state.EntityManager.SetComponentData(CurrentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
+                                state.EntityManager.SetComponentData(
+                                    CurrentSelectedEntity,
+                                    new LocalTransform
+                                    {
+                                        Position = onDragEndRaycastHit.Position,
+                                        Rotation = quaternion.LookRotationSafe(math.normalizesafe(onDragEndRaycastHit.Position - troopTransform.Position), math.up()),
+                                        Scale = 1f
+                                    });
 
                                 state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(CurrentSelectedEntity, false);
                                 state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);

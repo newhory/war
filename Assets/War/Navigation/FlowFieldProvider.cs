@@ -1,4 +1,7 @@
-﻿using Unity.Collections;
+﻿using Unity.Burst;
+using Unity.Collections;
+using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.AI;
@@ -9,30 +12,547 @@ namespace War.Navigation
     // 런타임 저장소 (서비스)
     public static class FlowFieldProvider
     {
-        public static float CellSize { get; private set; }
-        public static int2 GridSize { get; private set; }
-
-        private static NativeArray<float2> directionField; // 방향 벡터(정규화)
-        private static NativeArray<int> costField; // BFS 비용(셀 단계 수)
-        private static NativeArray<byte> navMeshMask;
-        private static NativeQueue<int> bfsQueue;
+        private static readonly int2[] s_offsets = { new(-1, 0), new(1, 0), new(0, -1), new(0, 1) };
 
 
-        public static float3 MinWorldPositionInGrid { get; private set; }
-
-        public static NativeArray<float2>.ReadOnly DirectionField
+        private struct QuadtreeNode
         {
-            get
+            public int2 Min;
+            public int2 Max;
+
+
+            public int MinX
             {
-                if (!directionField.IsCreated)
-                {
-                    directionField = new NativeArray<float2>(1, Allocator.Persistent);
-                }
-                
-                return directionField.AsReadOnly();
+                set => Min.x = value;
+            }
+
+            public int MinY
+            {
+                set => Min.y = value;
+            }
+
+            public int MaxX
+            {
+                set => Max.x = value;
+            }
+
+            public int MaxY
+            {
+                set => Max.y = value;
+            }
+
+            public int Width => Max.x - Min.x + 1;
+            public int Height => Max.y - Min.y + 1;
+        }
+
+        private struct BoundForQuadtree
+        {
+            public SimpleBounds Bounds;
+            public readonly float WalkableRatio;
+
+
+            public float3 Min => Bounds.Min;
+            public float3 Max => Bounds.Max;
+
+            public float3 Center => Bounds.Center;
+            public float3 Size => Bounds.Size;
+
+
+            public BoundForQuadtree(SimpleBounds bounds, float walkableRatio)
+                => (Bounds, WalkableRatio) = (bounds, walkableRatio);
+
+            public BoundForQuadtree(float3 min, float3 max, float walkableRatio)
+                : this(new SimpleBounds(min, max), walkableRatio)
+            {
             }
         }
 
+        private struct FlowFieldTarget
+        {
+            public int FlowId;
+            public SimpleBounds AreaBounds;
+            public NativeArray<float2> DirectionField;
+
+            public float3 Position => AreaBounds.Center;
+        }
+
+        [BurstCompile]
+        private struct QuadtreeJob : IJob
+        {
+            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMaskInJob; // 0 = walkable, 1 = blocked
+            [ReadOnly] public int2 NavMeshGridSize;
+            [ReadOnly] public float NavMeshCellSize;
+            [ReadOnly] public float3 NavMeshMinWorldPosition;
+
+            [ReadOnly] public int MinSize; // 최소 노드 크기 (예: 8)
+            [ReadOnly] public float Tolerance; // 분할 기준 walkable 비율 (예: 0.9f)
+
+            public NativeList<BoundForQuadtree> Bounds;
+
+
+            public void Execute()
+            {
+                NativeQueue<QuadtreeNode> nodes = new(Allocator.Temp);
+                nodes.Enqueue(new QuadtreeNode { MinX = 0, MinY = 0, MaxX = NavMeshGridSize.x - 1, MaxY = NavMeshGridSize.y - 1 });
+
+                while (nodes.TryDequeue(out QuadtreeNode node))
+                {
+                    if (ShouldSplit(node, out float walkableRatio))
+                    {
+                        Split(node, nodes);
+                    }
+                    else
+                    {
+                        float3 minPos = new(NavMeshMinWorldPosition.x + node.Min.x * NavMeshCellSize, 0, NavMeshMinWorldPosition.z + node.Min.y * NavMeshCellSize);
+                        float3 maxPos = new(NavMeshMinWorldPosition.x + (node.Max.x + 1) * NavMeshCellSize, 0, NavMeshMinWorldPosition.z + (node.Max.y + 1) * NavMeshCellSize);
+
+                        Bounds.Add(new BoundForQuadtree(minPos, maxPos, walkableRatio));
+                    }
+                }
+
+                nodes.Dispose();
+            }
+
+            private bool ShouldSplit(in QuadtreeNode node, out float walkableRatio)
+            {
+                int total = node.Width * node.Height;
+                int walkable = 0;
+
+                for (int y = node.Min.y; y <= node.Max.y; y++)
+                {
+                    int rowBase = y * NavMeshGridSize.x;
+                    for (int x = node.Min.x; x <= node.Max.x; x++)
+                    {
+                        int index = rowBase + x;
+                        if (NavMeshMaskInJob[index] == 0)
+                        {
+                            walkable++;
+                        }
+                    }
+                }
+
+                walkableRatio = (float)walkable / total;
+
+                return node.Width > MinSize && node.Height > MinSize && walkableRatio < Tolerance;
+            }
+
+            private static void Split(in QuadtreeNode node, NativeQueue<QuadtreeNode> nodes)
+            {
+                int midX = (node.Min.x + node.Max.x) >> 1;
+                int midY = (node.Min.y + node.Max.y) >> 1;
+
+                nodes.Enqueue(new QuadtreeNode { MinX = node.Min.x, MinY = node.Min.y, MaxX = midX, MaxY = midY });
+                nodes.Enqueue(new QuadtreeNode { MinX = midX + 1, MinY = node.Min.y, MaxX = node.Max.x, MaxY = midY });
+                nodes.Enqueue(new QuadtreeNode { MinX = node.Min.x, MinY = midY + 1, MaxX = midX, MaxY = node.Max.y });
+                nodes.Enqueue(new QuadtreeNode { MinX = midX + 1, MinY = midY + 1, MaxX = node.Max.x, MaxY = node.Max.y });
+            }
+        }
+
+        [BurstCompile]
+        private struct MergeBoundsJob : IJob
+        {
+            public NativeList<BoundForQuadtree> Bounds;
+
+
+            public void Execute()
+            {
+                for (int index = Bounds.Length - 1; index >= 0; index--)
+                {
+                    // blocked 40%이상 영역 제거
+                    if (!HasWalkable(Bounds[index], 0.4f))
+                    {
+                        Bounds.RemoveAtSwapBack(index);
+                    }
+                }
+
+                bool isChanged;
+                int safety = 0;
+                do
+                {
+                    isChanged = false;
+
+                    for (int i = Bounds.Length - 1; i >= 0; i--)
+                    {
+                        BoundForQuadtree current = Bounds[i];
+
+                        int j = Bounds.Length - 1;
+                        while (j >= 0)
+                        {
+                            if (j == i)
+                            {
+                                j--;
+                                continue;
+                            }
+
+                            BoundForQuadtree other = Bounds[j];
+
+                            if (CanMergeHorizontal(current.Bounds, other.Bounds))
+                            {
+                                isChanged = true;
+
+                                current.Bounds = MergeHorizontal(current.Bounds, other.Bounds);
+                                Bounds[i] = current;
+                                Bounds.RemoveAtSwapBack(j);
+
+                                i = Bounds.Length; // SwapBack 후 Bounds.Length가 감소됐으므로 처음부터 다시 검사
+                                break;
+                            }
+
+                            if (CanMergeVertical(current.Bounds, other.Bounds))
+                            {
+                                isChanged = true;
+
+                                current.Bounds = MergeVertical(current.Bounds, other.Bounds);
+                                Bounds[i] = current;
+                                Bounds.RemoveAtSwapBack(j);
+
+                                i = Bounds.Length;
+                                break;
+                            }
+
+                            j--;
+                        }
+                    }
+
+                    safety++;
+                } while (isChanged && safety < 1024);
+            }
+
+            private static bool HasWalkable(in BoundForQuadtree b, float tolerance) => b.WalkableRatio > tolerance;
+
+            private static bool CanMergeHorizontal(in SimpleBounds a, in SimpleBounds b) =>
+                mathf.Approximately(a.Min.z, b.Min.z) &&
+                mathf.Approximately(a.Max.z, b.Max.z) &&
+                mathf.Approximately(a.Max.x, b.Min.x);
+
+            private static bool CanMergeVertical(in SimpleBounds a, in SimpleBounds b) =>
+                mathf.Approximately(a.Min.x, b.Min.x) &&
+                mathf.Approximately(a.Max.x, b.Max.x) &&
+                mathf.Approximately(a.Max.z, b.Min.z);
+
+            private static SimpleBounds MergeHorizontal(in SimpleBounds a, in SimpleBounds b) =>
+                new(
+                    new float3(math.min(a.Min.x, b.Min.x), 0, a.Min.z),
+                    new float3(math.max(a.Max.x, b.Max.x), 0, a.Max.z)
+                );
+
+            private static SimpleBounds MergeVertical(in SimpleBounds a, in SimpleBounds b) =>
+                new(
+                    new float3(a.Min.x, 0, math.min(a.Min.z, b.Min.z)),
+                    new float3(a.Max.x, 0, math.max(a.Max.z, b.Max.z))
+                );
+        }
+
+        [BurstCompile]
+        private struct ExpandBoundsJob : IJobParallelFor
+        {
+            public NativeArray<BoundForQuadtree> Bounds;
+
+            [ReadOnly] public int2 NavMeshGridSize;
+            [ReadOnly] public float NavMeshCellSize;
+            [ReadOnly] public float3 NavMeshMinWorldPosition;
+
+
+            public void Execute(int i)
+            {
+                BoundForQuadtree boundForQuadtree = Bounds[i];
+                SimpleBounds bound = boundForQuadtree.Bounds;
+
+                bound.Min.x = math.max(NavMeshMinWorldPosition.x, bound.Min.x - NavMeshCellSize);
+                bound.Min.z = math.max(NavMeshMinWorldPosition.z, bound.Min.z - NavMeshCellSize);
+                bound.Max.x = math.min((NavMeshGridSize.x - 1) * NavMeshCellSize, bound.Max.x + NavMeshCellSize);
+                bound.Max.z = math.min((NavMeshGridSize.y - 1) * NavMeshCellSize, bound.Max.z + NavMeshCellSize);
+
+                boundForQuadtree.Bounds = bound;
+
+                Bounds[i] = boundForQuadtree;
+            }
+        }
+
+
+        [BurstCompile]
+        private struct BuildDirectionFieldJob : IJob
+        {
+            public NativeArray<float2> DirectionField;
+
+            [ReadOnly] public float3 FlowFieldTargetPosition;
+            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMaskInJob;
+            [ReadOnly] public int2 NavMeshGridSize;
+            [ReadOnly] public float NavMeshCellSize;
+            [ReadOnly] public float3 NavMeshMinWorldPosition;
+
+            public void Execute()
+            {
+                NativeQueue<int> bfsQueue = new(Allocator.Temp);
+                NativeArray<float> costField = new(NavMeshGridSize.x * NavMeshGridSize.y, Allocator.Temp);
+
+                for (int i = 0; i < costField.Length; i++)
+                {
+                    costField[i] = float.PositiveInfinity;
+                }
+
+                // 1. 타깃 셀 초기화
+                int2 targetCell = FlowFieldQuery.WorldToCell(FlowFieldTargetPosition, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition);
+                int targetIndex = FlowFieldQuery.CellToIndex(targetCell, NavMeshGridSize);
+
+                if (NavMeshMaskInJob[targetIndex] != 0)
+                {
+                    targetIndex = FindNearestWalkable(targetIndex);
+                }
+
+                costField[targetIndex] = 0f;
+                bfsQueue.Enqueue(targetIndex);
+
+                // 2. Dijkstra 확산
+                while (bfsQueue.TryDequeue(out int index))
+                {
+                    int2 cell = FlowFieldQuery.IndexToCell(index, NavMeshGridSize);
+                    float currentCost = costField[index];
+
+                    Relax(cell, new int2(-1, 1), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(-1, 0), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(-1, -1), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(0, 1), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(0, -1), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(1, 1), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(1, 0), currentCost, costField, bfsQueue);
+                    Relax(cell, new int2(1, -1), currentCost, costField, bfsQueue);
+                }
+
+                // 3. 방향 필드 구성 (차분 + 평행 보정 통합)
+                for (int y = 0; y < NavMeshGridSize.y; y++)
+                {
+                    for (int x = 0; x < NavMeshGridSize.x; x++)
+                    {
+                        int index = y * NavMeshGridSize.x + x;
+
+                        if (NavMeshMaskInJob[index] == 0)
+                        {
+                            DirectionField[index] = ComputeDirection(x, y, index, costField);
+                        }
+                        else
+                        {
+                            float2 bestDir = float2.zero;
+                            float bestDist = float.PositiveInfinity;
+
+                            // 주변 1~2셀 탐색
+                            for (int dy = -2; dy <= 2; dy++)
+                            {
+                                for (int dx = -2; dx <= 2; dx++)
+                                {
+                                    int nx = x + dx;
+                                    int ny = y + dy;
+                                    if (nx < 0 || ny < 0 || nx >= NavMeshGridSize.x || ny >= NavMeshGridSize.y)
+                                    {
+                                        continue;
+                                    }
+
+                                    int nIdx = ny * NavMeshGridSize.x + nx;
+                                    if (NavMeshMaskInJob[nIdx] != 0) // 유효 셀만
+                                    {
+                                        continue;
+                                    }
+
+                                    float dist = math.length(new float2(dx, dy));
+                                    if (dist < bestDist)
+                                    {
+                                        bestDist = dist;
+                                        bestDir = new float2(dx, dy);
+                                    }
+                                }
+                            }
+
+                            DirectionField[index] = math.normalizesafe(bestDir);
+                        }
+                    }
+                }
+
+                bfsQueue.Dispose();
+                costField.Dispose();
+            }
+
+            private float2 ComputeDirection(int x, int y, int index, NativeArray<float> costField)
+            {
+                float currentCost = costField[index];
+                if (float.IsPositiveInfinity(currentCost))
+                {
+                    return float2.zero;
+                }
+
+                float dx = 0f, dy = 0f;
+                float invCellSize = 1f / NavMeshCellSize;
+                float invDoubleCellSize = invCellSize * 0.5f;
+
+                // 좌/우 차분
+                bool leftBlocked = false, rightBlocked = false;
+                if (x > 0 && x < NavMeshGridSize.x - 1)
+                {
+                    int leftIndex = index - 1;
+                    int rightIndex = index + 1;
+                    leftBlocked = NavMeshMaskInJob[leftIndex] != 0;
+                    rightBlocked = NavMeshMaskInJob[rightIndex] != 0;
+
+                    if (!leftBlocked && !float.IsPositiveInfinity(costField[leftIndex]) &&
+                        !rightBlocked && !float.IsPositiveInfinity(costField[rightIndex]))
+                    {
+                        dx = (costField[rightIndex] - costField[leftIndex]) * invDoubleCellSize;
+                    }
+                    else if (!rightBlocked && !float.IsPositiveInfinity(costField[rightIndex]))
+                    {
+                        dx = (costField[rightIndex] - currentCost) * invCellSize;
+                    }
+                    else if (!leftBlocked && !float.IsPositiveInfinity(costField[leftIndex]))
+                    {
+                        dx = (currentCost - costField[leftIndex]) * invCellSize;
+                    }
+                }
+
+                // 상/하 차분
+                bool downBlocked = false, upBlocked = false;
+                if (y > 0 && y < NavMeshGridSize.y - 1)
+                {
+                    int downIndex = index - NavMeshGridSize.x;
+                    int upIndex = index + NavMeshGridSize.x;
+                    downBlocked = NavMeshMaskInJob[downIndex] != 0;
+                    upBlocked = NavMeshMaskInJob[upIndex] != 0;
+
+                    if (!downBlocked && !float.IsPositiveInfinity(costField[downIndex]) &&
+                        !upBlocked && !float.IsPositiveInfinity(costField[upIndex]))
+                    {
+                        dy = (costField[upIndex] - costField[downIndex]) * invDoubleCellSize;
+                    }
+                    else if (!upBlocked && !float.IsPositiveInfinity(costField[upIndex]))
+                    {
+                        dy = (costField[upIndex] - currentCost) * invCellSize;
+                    }
+                    else if (!downBlocked && !float.IsPositiveInfinity(costField[downIndex]))
+                    {
+                        dy = (currentCost - costField[downIndex]) * invCellSize;
+                    }
+                }
+
+                // gradient → 비용 감소 방향
+                float2 direction = math.normalizesafe(-new float2(dx, dy));
+
+                // 장애물 평행 보정
+                if ((leftBlocked && direction.x < 0f) || (rightBlocked && direction.x > 0f))
+                {
+                    direction = new float2(0, direction.y);
+                }
+
+                if ((upBlocked && direction.y > 0f) || (downBlocked && direction.y < 0f))
+                {
+                    direction = new float2(direction.x, 0);
+                }
+
+                // Fallback: 코너 셀에서 방향이 완전히 사라질 경우
+                if (math.lengthsq(direction) < 0.0001f)
+                {
+                    // 열린 축을 따라가거나 목표 방향 사용
+                    if (!leftBlocked) direction = new float2(-1, 0);
+                    else if (!rightBlocked) direction = new float2(1, 0);
+                    else if (!upBlocked) direction = new float2(0, 1);
+                    else if (!downBlocked) direction = new float2(0, -1);
+                    else
+                    {
+                        float3 cellWorldPos = NavMeshMinWorldPosition + new float3(x * NavMeshCellSize, 0, y * NavMeshCellSize);
+                        direction = math.normalizesafe((FlowFieldTargetPosition - cellWorldPos).xz);
+                    }
+                }
+
+                return direction;
+            }
+
+            private void Relax(int2 from, int2 offset, float currentCost, NativeArray<float> costField, NativeQueue<int> bfsQueue)
+            {
+                int2 cell = from + offset;
+                if (cell.x < 0 || cell.y < 0 || cell.x >= NavMeshGridSize.x || cell.y >= NavMeshGridSize.y)
+                {
+                    return;
+                }
+
+                int index = cell.y * NavMeshGridSize.x + cell.x;
+                if (NavMeshMaskInJob[index] != 0)
+                {
+                    return;
+                }
+
+                bool diagonal = offset.x != 0 && offset.y != 0;
+                if (diagonal)
+                {
+                    int2 adj1 = new(from.x + offset.x, from.y);
+                    int2 adj2 = new(from.x, from.y + offset.y);
+                    if (NavMeshMaskInJob[adj1.y * NavMeshGridSize.x + adj1.x] != 0 ||
+                        NavMeshMaskInJob[adj2.y * NavMeshGridSize.x + adj2.y] != 0)
+                    {
+                        return;
+                    }
+                }
+
+                float step = diagonal ? 1.41421356f : 1f;
+                float newCost = currentCost + step * NavMeshCellSize;
+                if (newCost < costField[index])
+                {
+                    costField[index] = newCost;
+                    bfsQueue.Enqueue(index);
+                }
+            }
+
+            private int FindNearestWalkable(int startIndex)
+            {
+                NativeQueue<int> searchQueue = new(Allocator.Temp);
+                NativeArray<bool> visited = new(NavMeshGridSize.x * NavMeshGridSize.y, Allocator.Temp);
+
+                searchQueue.Enqueue(startIndex);
+                visited[startIndex] = true;
+
+                int findIndex = startIndex;
+
+                while (searchQueue.TryDequeue(out int index))
+                {
+                    int2 cell = FlowFieldQuery.IndexToCell(index, NavMeshGridSize);
+
+                    if (NavMeshMaskInJob[index] == 0)
+                    {
+                        findIndex = index;
+
+                        break;
+                    }
+
+                    foreach (int2 off in s_offsets)
+                    {
+                        int2 nextCell = cell + off;
+                        if (nextCell.x < 0 || nextCell.y < 0 || nextCell.x >= NavMeshGridSize.x || nextCell.y >= NavMeshGridSize.y)
+                        {
+                            continue;
+                        }
+
+                        int nextIndex = FlowFieldQuery.CellToIndex(nextCell, NavMeshGridSize);
+                        if (!visited[nextIndex])
+                        {
+                            visited[nextIndex] = true;
+                            searchQueue.Enqueue(nextIndex);
+                        }
+                    }
+                }
+
+                searchQueue.Dispose();
+                visited.Dispose();
+
+                return findIndex;
+            }
+        }
+
+
+        private static NativeArray<FlowFieldTarget> staticFlowFieldTargets;
+        private static NativeArray<byte> navMeshMask;
+
+
+        public static float CellSize { get; private set; }
+        public static int2 GridSize { get; private set; }
+        public static float3 MinWorldPositionInGrid { get; private set; }
+
+        public static BlobAssetReference<FlowFieldBlobRoot> FlowFieldFlowBlobAssetReference { get; private set; }
         public static NativeArray<byte>.ReadOnly NavMeshMask => navMeshMask.AsReadOnly();
 
 
@@ -51,10 +571,8 @@ namespace War.Navigation
 
                 int count = newGridSize.x * newGridSize.y;
 
-                directionField = new NativeArray<float2>(count, alloc);
-                costField = new NativeArray<int>(count, alloc);
+
                 navMeshMask = new NativeArray<byte>(count, alloc);
-                bfsQueue = new NativeQueue<int>(alloc);
 
                 GridSize = newGridSize;
             }
@@ -63,74 +581,25 @@ namespace War.Navigation
             MinWorldPositionInGrid = minWorldPositionInGrid;
 
             BuildNavMeshMask();
-        }
 
-        public static void BuildDirectionField(NativeArray<FlowFieldTarget>.ReadOnly targets, NativeArray<byte>.ReadOnly obstacleMask)
-        {
-            BuildBfs(targets, obstacleMask);
+            BuildStaticFlowFieldTargets(alloc);
 
-            // 방향 필드 구성(가장 낮은 비용 이웃으로 그라디언트 하강)
-            for (int y = 0; y < GridSize.y; y++)
+            if (staticFlowFieldTargets.Length > 0)
             {
-                for (int x = 0; x < GridSize.x; x++)
-                {
-                    int idx = y * GridSize.x + x;
-                    if (costField[idx] == int.MaxValue)
-                    {
-                        directionField[idx] = float2.zero;
-                        continue;
-                    }
-
-                    int bestCost = costField[idx];
-                    float2 best = float2.zero;
-
-                    Consider(x + 1, y, new float2(1, 0));
-                    Consider(x - 1, y, new float2(-1, 0));
-                    Consider(x, y + 1, new float2(0, 1));
-                    Consider(x, y - 1, new float2(0, -1));
-
-                    directionField[idx] = math.normalizesafe(best);
-
-                    continue;
-
-                    void Consider(int nx, int ny, float2 offset)
-                    {
-                        if (nx < 0 || ny < 0 || nx >= GridSize.x || ny >= GridSize.y)
-                        {
-                            return;
-                        }
-
-                        int nIdx = ny * GridSize.x + nx;
-                        if (costField[nIdx] < bestCost)
-                        {
-                            bestCost = costField[nIdx];
-                            best = offset;
-                        }
-                    }
-                }
+                BuildDirectionField();
             }
         }
 
         public static void Dispose()
         {
-            if (directionField.IsCreated)
+            if (staticFlowFieldTargets.IsCreated)
             {
-                directionField.Dispose();
-            }
-
-            if (costField.IsCreated)
-            {
-                costField.Dispose();
+                staticFlowFieldTargets.Dispose();
             }
 
             if (navMeshMask.IsCreated)
             {
                 navMeshMask.Dispose();
-            }
-
-            if (bfsQueue.IsCreated)
-            {
-                bfsQueue.Dispose();
             }
         }
 
@@ -138,19 +607,19 @@ namespace War.Navigation
         {
             float2 currentWorldPositionInGrid = MinWorldPositionInGrid.xz;
 
-            for (int gridY = 0; gridY < GridSize.y; gridY++)
+            for (int y = 0; y < GridSize.y; y++)
             {
                 currentWorldPositionInGrid.x = MinWorldPositionInGrid.x;
 
-                for (int gridX = 0; gridX < GridSize.x; gridX++)
+                for (int x = 0; x < GridSize.x; x++)
                 {
                     Vector3 center = new(currentWorldPositionInGrid.x + CellSize * 0.5f, 0, currentWorldPositionInGrid.y + CellSize * 0.5f);
 
                     if (!NavMesh.SamplePosition(center, out NavMeshHit _, CellSize, NavMesh.AllAreas))
                     {
-                        int idx = gridX + gridY * GridSize.x;
+                        int index = x + y * GridSize.x;
 
-                        navMeshMask[idx] = 1;
+                        navMeshMask[index] = 1;
                     }
 
                     currentWorldPositionInGrid.x += CellSize;
@@ -160,60 +629,110 @@ namespace War.Navigation
             }
         }
 
-        private static void BuildBfs(NativeArray<FlowFieldTarget>.ReadOnly targets, NativeArray<byte>.ReadOnly obstacleMask)
+        public static void BuildStaticFlowFieldTargets(Allocator alloc)
         {
-            // BFS 비용 초기화
-            for (int i = 0; i < costField.Length; i++)
+            NativeList<BoundForQuadtree> results = new(Allocator.TempJob);
+
+            QuadtreeJob quadtreeJob = new()
             {
-                costField[i] = int.MaxValue;
+                NavMeshMaskInJob = navMeshMask.AsReadOnly(),
+                NavMeshGridSize = GridSize,
+                NavMeshCellSize = CellSize,
+                NavMeshMinWorldPosition = MinWorldPositionInGrid,
+
+                MinSize = 8,
+                Tolerance = 0.9f,
+
+                Bounds = results
+            };
+            quadtreeJob.Run();
+
+            MergeBoundsJob mergeJob = new() { Bounds = results };
+            mergeJob.Run();
+
+            new ExpandBoundsJob
+                {
+                    Bounds = results.AsArray(),
+
+                    NavMeshGridSize = GridSize,
+                    NavMeshCellSize = CellSize,
+                    NavMeshMinWorldPosition = MinWorldPositionInGrid,
+                }
+                .Schedule(results.Length, 64)
+                .Complete();
+
+            staticFlowFieldTargets = new NativeArray<FlowFieldTarget>(results.Length, alloc);
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                SimpleBounds bounds = results[i].Bounds;
+
+                staticFlowFieldTargets[i] = new FlowFieldTarget
+                {
+                    FlowId = i,
+                    AreaBounds = bounds,
+                    DirectionField = new NativeArray<float2>(GridSize.x * GridSize.y, alloc)
+                };
             }
 
-            // 다중 소스 BFS 큐 초기화(모든 목적지 셀을 소스에 삽입)
-            bfsQueue.Clear();
-            for (int k = 0; k < targets.Length; k++)
+            results.Dispose();
+        }
+
+        private static void BuildDirectionField()
+        {
+            JobHandle dependency = default;
+
+            for (int i = 0, count = staticFlowFieldTargets.Length; i < count; i++)
             {
-                int index = FlowFieldQuery.WorldToIndex(targets[k].Position, GridSize, CellSize, MinWorldPositionInGrid);
-                if (obstacleMask[index] == 0)
+                dependency = JobHandle.CombineDependencies(
+                    dependency,
+                    new BuildDirectionFieldJob
+                        {
+                            DirectionField = staticFlowFieldTargets[i].DirectionField,
+
+                            FlowFieldTargetPosition = staticFlowFieldTargets[i].Position,
+                            NavMeshMaskInJob = navMeshMask.AsReadOnly(),
+                            NavMeshGridSize = GridSize,
+                            NavMeshCellSize = CellSize,
+                            NavMeshMinWorldPosition = MinWorldPositionInGrid
+                        }
+                        .Schedule(dependency));
+            }
+
+            dependency.Complete();
+
+            FlowFieldFlowBlobAssetReference = Build(staticFlowFieldTargets);
+        }
+
+        private static BlobAssetReference<FlowFieldBlobRoot> Build(NativeArray<FlowFieldTarget> sourceTargets)
+        {
+            BlobBuilder builder = new(Allocator.Temp);
+            ref FlowFieldBlobRoot root = ref builder.ConstructRoot<FlowFieldBlobRoot>();
+
+            // FlowFieldTarget 배열 크기만큼 BlobArray 할당
+            BlobBuilderArray<FlowFieldTargetBlob> targets = builder.Allocate(ref root.Targets, sourceTargets.Length);
+
+            for (int i = 0; i < sourceTargets.Length; i++)
+            {
+                FlowFieldTarget src = sourceTargets[i];
+                ref FlowFieldTargetBlob dst = ref targets[i];
+
+                dst.FlowId = src.FlowId;
+                dst.AreaBounds = src.AreaBounds;
+
+                // DirectionField 복사
+                BlobBuilderArray<float2> dirArray = builder.Allocate(ref dst.DirectionField, src.DirectionField.Length);
+                for (int j = 0; j < src.DirectionField.Length; j++)
                 {
-                    costField[index] = 0;
-                    bfsQueue.Enqueue(index);
+                    dirArray[j] = src.DirectionField[j];
                 }
             }
 
-            // 4-이웃 BFS
-            while (bfsQueue.Count > 0)
-            {
-                int idx = bfsQueue.Dequeue();
-                int2 c = new(idx % GridSize.x, idx / GridSize.x);
-                int currCost = costField[idx];
+            BlobAssetReference<FlowFieldBlobRoot> blobAsset = builder.CreateBlobAssetReference<FlowFieldBlobRoot>(Allocator.Persistent);
 
-                // 4방향
-                TryRelax(c + new int2(1, 0), currCost, obstacleMask);
-                TryRelax(c + new int2(-1, 0), currCost, obstacleMask);
-                TryRelax(c + new int2(0, 1), currCost, obstacleMask);
-                TryRelax(c + new int2(0, -1), currCost, obstacleMask);
-            }
-        }
+            builder.Dispose();
 
-        private static void TryRelax(int2 n, int currCost, NativeArray<byte>.ReadOnly mask)
-        {
-            if (n.x < 0 || n.y < 0 || n.x >= GridSize.x || n.y >= GridSize.y)
-            {
-                return;
-            }
-
-            int nIdx = n.y * GridSize.x + n.x;
-            if (mask[nIdx] != 0) // 장애물 셀은 통과 불가
-            {
-                return;
-            }
-
-            int newCost = currCost + 1;
-            if (newCost < costField[nIdx])
-            {
-                costField[nIdx] = newCost;
-                bfsQueue.Enqueue(nIdx);
-            }
+            return blobAsset;
         }
     }
 }

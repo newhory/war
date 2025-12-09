@@ -8,6 +8,9 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
+    using Navigation;
+    
+    
     [UpdateInGroup(typeof(Group.MoveSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct MoveSystem : ISystem
@@ -18,7 +21,7 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public float DeltaTime;
 
 
-            private void Execute(ref Velocity velocity, ref LocalTransform localTransform, in Acceleration acceleration)
+            private void Execute(Entity entity, ref Velocity velocity, ref LocalTransform localTransform, in Acceleration acceleration)
             {
                 float3 currentVelocity = velocity.Value;
 
@@ -38,7 +41,7 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Movable, Acceleration>()
                     .WithAllRW<Velocity, LocalTransform>()
-                    .WithNone<PhysicsVelocity, UnityNavMeshAgent>()
+                    .WithNone<PhysicsVelocity, UnityNavMeshAgent, UnitPosition>()
                     .Build();
 
         public void OnDestroy(ref SystemState state)

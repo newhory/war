@@ -90,7 +90,7 @@ namespace War.Navigation.Systems
                         Entity = Entity.Null,
                         Position = center,
                         Velocity = float3.zero,
-                        Radius = CellSize * 0.5f,
+                        Radius = CellSize,
                         IsObstacle = 1
                     });
             }

@@ -25,14 +25,6 @@ namespace War.Navigation
     public struct UpdateNavigationGrid : IComponentData
     {
     }
-    
-    // 목적지 엔티티에 부착: 동일한 목적지 그룹(flowId)을 가진 유닛들은 같은 필드를 공유
-    public struct FlowFieldTarget : IComponentData
-    {
-        public int FlowId;
-        public float3 Position;
-        public float InfluenceRadius; // 선택: 목표 도착 판정에 사용
-    }
 
     public struct UnitPosition : IComponentData
     {

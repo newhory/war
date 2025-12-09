@@ -46,7 +46,7 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Movable, Destination, MoveSpeed>()
                     .WithAllRW<Velocity, LocalTransform>()
                     .WithAllRW<Forward>()
-                    .WithNone<PhysicsVelocity, NavMeshAgentData>()
+                    .WithNone<PhysicsVelocity, NavMeshAgentData, Navigation.UnitPosition>()
                     .Build();
 
         public void OnDestroy(ref SystemState state)

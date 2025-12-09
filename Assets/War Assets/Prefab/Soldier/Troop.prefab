@@ -73,7 +73,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0504540eca65e08408cd984a29a13fc5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::War.Dots.Component.Authoring.MoveSpeedAuthoring
-  maxSpeed: 4
+  maxSpeed: 8
 --- !u!114 &-2458489053009275030
 MonoBehaviour:
   m_ObjectHideFlags: 0

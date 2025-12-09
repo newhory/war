@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
@@ -20,6 +21,8 @@ namespace War.Dots.Component.ComponentSystem
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
+            [ReadOnly] public BlobAssetReference<FlowFieldBlobRoot> FlowFieldBlobRootBlob;
+
 
             private void Execute([EntityIndexInQuery] int index, Entity entity, in LocalTransform localTransform, in Velocity velocity, in Destination destination, in NavMeshAgentData navMeshAgentData, in MoveSpeed moveSpeed)
             {
@@ -32,6 +35,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, entity, new UnitPreferredSide());
                 EntityCommandBuffer.AddComponent(index, entity, new BlockAhead());
                 EntityCommandBuffer.AddComponent(index, entity, new StandingCooldown());
+                EntityCommandBuffer.AddComponent(index, entity, new FlowFieldBlobReference { Blob = FlowFieldBlobRootBlob });
             }
         }
 
@@ -181,7 +185,14 @@ namespace War.Dots.Component.ComponentSystem
             _soldierForUnitQuery.SetSharedComponentFilter(new NavigationAPI { Type = NavigationType.Custom });
 
             ecb = ecbSystem.CreateCommandBuffer();
-            dependency = new AddComponentJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_soldierForUnitQuery, dependency);
+            dependency =
+                new AddComponentJob
+                    {
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
+                        
+                        FlowFieldBlobRootBlob = FlowFieldProvider.FlowFieldFlowBlobAssetReference,
+                    }
+                    .ScheduleParallel(_soldierForUnitQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
             Dependency = dependency;

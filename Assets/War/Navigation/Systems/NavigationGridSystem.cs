@@ -38,12 +38,12 @@ namespace War.Navigation.Systems
                 navigationGrid.NeighborHashGridSize =
                     new int2(
                         (int)math.ceil(navigationGrid.Size.x / navigationGrid.NeighborHashCellSize),
-                        (int)math.ceil(navigationGrid.Size.y / navigationGrid.NeighborHashCellSize));
+                        (int)math.ceil(navigationGrid.Size.z / navigationGrid.NeighborHashCellSize));
 
                 navigationGrid.FlowFieldGridSize =
                     new int2(
                         (int)math.ceil(navigationGrid.Size.x / navigationGrid.FlowFieldCellSize),
-                        (int)math.ceil(navigationGrid.Size.y / navigationGrid.FlowFieldCellSize));
+                        (int)math.ceil(navigationGrid.Size.z / navigationGrid.FlowFieldCellSize));
 
                 state.EntityManager.SetComponentData(navigationGridEntity, navigationGrid);
             }

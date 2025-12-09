@@ -109,12 +109,15 @@ namespace War.Dots.Component.ComponentSystem
 
                 EntityCommandBuffer ecb = new(Allocator.Temp);
                 foreach (
-                    (RefRW<Destination> refTargetDestination, RefRW<Forward> refForward, RefRO<LocalTransform> refLocalTransform, Entity entity)
+                    (RefRW<LocalTransform> refLocalTransform, RefRW<Destination> refDestination, Entity entity)
                     in
-                    SystemAPI.Query<RefRW<Destination>, RefRW<Forward>, RefRO<LocalTransform>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
+                    SystemAPI.Query<RefRW<LocalTransform>, RefRW<Destination>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
                 {
-                    refTargetDestination.ValueRW.Position = destination;
-                    refForward.ValueRW.Value.xz = math.normalize(destination.xz - refLocalTransform.ValueRO.Position.xz);
+                    refDestination.ValueRW.Position = destination;
+                    
+                    float3 troopPosition = refLocalTransform.ValueRO.Position;
+                    refLocalTransform.ValueRW.Position = destination;
+                    refLocalTransform.ValueRW.Rotation = quaternion.LookRotationSafe(math.normalize(destination - troopPosition), math.up());
 
                     ecb.SetComponentEnabled<TroopAISearchTarget>(entity, true);
                 }

@@ -209,8 +209,8 @@ namespace War.Dots.Component.ComponentSystem
                         troopForSpawn.TroopRotation,
                         1f));
 
-                EntityCommandBuffer.AddComponent(index, troopEntity, new Velocity());
-                EntityCommandBuffer.AddComponent(index, troopEntity, new Forward { Value = math.forward(troopForSpawn.TroopRotation) });
+                //EntityCommandBuffer.AddComponent(index, troopEntity, new Velocity());
+                //EntityCommandBuffer.AddComponent(index, troopEntity, new Forward { Value = math.forward(troopForSpawn.TroopRotation) });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Destination { Position = new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y) });
 
             #endregion

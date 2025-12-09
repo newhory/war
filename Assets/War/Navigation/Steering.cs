@@ -149,7 +149,7 @@ namespace War.Navigation
                     {
                         float3 d = neighborRecord.Position - pos;
                         float dist = math.length(d);
-                        if (neighborRecord.IsObstacle != 0 && dist < (selfRadius + neighborRecord.Radius) * 1.5f)
+                        if (neighborRecord.IsObstacle != 0 && dist < (selfRadius + neighborRecord.Radius) * 1.1f)
                         {
                             obsCount++;
                         }

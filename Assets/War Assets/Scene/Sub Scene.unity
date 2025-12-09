@@ -256,7 +256,7 @@ MonoBehaviour:
   originalCameraRotation: {x: 0.4228318, y: 0, z: 0, w: 0.90620816}
   padding: 0.5
   smoothTime: 0.3
-  minDistance: 14
+  minDistance: 25
   maxDistance: 40
   minOrthographicSize: 1
   maxOrthographicSize: 200

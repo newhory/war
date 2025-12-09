@@ -23,7 +23,7 @@ namespace War.Dots.Component.ComponentSystem
                     return;
                 }
 
-                destination.Position = formationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation);
+                destination.Position.xz = formationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation).xz;
             }
         }
 
