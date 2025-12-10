@@ -34,11 +34,7 @@ namespace War.Navigation.Systems
 
             NavigationGrid navigationGrid = SystemAPI.GetSingleton<NavigationGrid>();
 
-            int2 gridSize = navigationGrid.FlowFieldGridSize;
-            float cellSize = navigationGrid.FlowFieldCellSize;
-            float3 minWorldPositionInGrid = navigationGrid.Min;
-
-            FlowFieldProvider.Init(cellSize, gridSize, minWorldPositionInGrid, Allocator.Persistent);
+            FlowFieldProvider.Init(navigationGrid);
         }
 
         public void OnStartRunning(ref SystemState state) => _frameCount = 0;

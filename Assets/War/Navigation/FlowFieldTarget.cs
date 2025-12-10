@@ -7,10 +7,10 @@ namespace War.Navigation
 {
     public struct FlowFieldBlobReference : IComponentData
     {
-        public BlobAssetReference<FlowFieldBlobRoot> Blob;
+        public BlobAssetReference<FlowFieldBlobRoot> BlobAssetReference;
     }
     
-    public struct FlowFieldTargetBlob
+    public struct FlowFieldTarget
     {
         public int FlowId;
         public SimpleBounds AreaBounds;
@@ -21,7 +21,7 @@ namespace War.Navigation
     
     public struct FlowFieldBlobRoot
     {
-        public BlobArray<FlowFieldTargetBlob> Targets;
+        public BlobArray<FlowFieldTarget> FlowFieldTargets;
     }
 
     [BurstCompile]

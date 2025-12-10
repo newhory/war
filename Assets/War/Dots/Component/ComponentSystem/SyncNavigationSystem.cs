@@ -24,9 +24,9 @@ namespace War.Dots.Component.ComponentSystem
                 
                 unitMaxSpeed.Value = moveSpeed.CurrentMax;
 
-                for (int i = 0, count = flowFieldBlobReference.Blob.Value.Targets.Length; i < count; ++i)
+                for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
                 {
-                    ref FlowFieldTargetBlob target = ref flowFieldBlobReference.Blob.Value.Targets[i];
+                    ref FlowFieldTarget target = ref flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i];
                     if (target.AreaBounds.Contains(destination.Position.xz))
                     {
                         unitDestination.FlowFieldId = target.FlowId;

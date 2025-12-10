@@ -9,7 +9,7 @@ using UnityEngine.AI;
 
 namespace War.Navigation
 {
-    // 런타임 저장소 (서비스)
+    [BurstCompile]
     public static class FlowFieldProvider
     {
         private static readonly int2[] s_offsets = { new(-1, 0), new(1, 0), new(0, -1), new(0, 1) };
@@ -67,7 +67,7 @@ namespace War.Navigation
             }
         }
 
-        private struct FlowFieldTarget
+        private struct FlowFieldTargetForBuffer
         {
             public int FlowId;
             public SimpleBounds AreaBounds;
@@ -153,13 +153,15 @@ namespace War.Navigation
         {
             public NativeList<BoundForQuadtree> Bounds;
 
+            [ReadOnly] public float ValidWalkableRatio;
+
 
             public void Execute()
             {
                 for (int index = Bounds.Length - 1; index >= 0; index--)
                 {
                     // blocked 40%이상 영역 제거
-                    if (!HasWalkable(Bounds[index], 0.4f))
+                    if (!HasWalkable(Bounds[index], ValidWalkableRatio))
                     {
                         Bounds.RemoveAtSwapBack(index);
                     }
@@ -269,11 +271,10 @@ namespace War.Navigation
             }
         }
 
-
         [BurstCompile]
-        private struct BuildDirectionFieldJob : IJob
+        private struct BuildCostFieldJob : IJob
         {
-            public NativeArray<float2> DirectionField;
+            public NativeArray<float> CostField;
 
             [ReadOnly] public float3 FlowFieldTargetPosition;
             [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMaskInJob;
@@ -281,14 +282,14 @@ namespace War.Navigation
             [ReadOnly] public float NavMeshCellSize;
             [ReadOnly] public float3 NavMeshMinWorldPosition;
 
+
             public void Execute()
             {
                 NativeQueue<int> bfsQueue = new(Allocator.Temp);
-                NativeArray<float> costField = new(NavMeshGridSize.x * NavMeshGridSize.y, Allocator.Temp);
 
-                for (int i = 0; i < costField.Length; i++)
+                for (int i = 0; i < CostField.Length; i++)
                 {
-                    costField[i] = float.PositiveInfinity;
+                    CostField[i] = float.PositiveInfinity;
                 }
 
                 // 1. 타깃 셀 초기화
@@ -300,202 +301,26 @@ namespace War.Navigation
                     targetIndex = FindNearestWalkable(targetIndex);
                 }
 
-                costField[targetIndex] = 0f;
+                CostField[targetIndex] = 0f;
                 bfsQueue.Enqueue(targetIndex);
 
                 // 2. Dijkstra 확산
                 while (bfsQueue.TryDequeue(out int index))
                 {
                     int2 cell = FlowFieldQuery.IndexToCell(index, NavMeshGridSize);
-                    float currentCost = costField[index];
+                    float currentCost = CostField[index];
 
-                    Relax(cell, new int2(-1, 1), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(-1, 0), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(-1, -1), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(0, 1), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(0, -1), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(1, 1), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(1, 0), currentCost, costField, bfsQueue);
-                    Relax(cell, new int2(1, -1), currentCost, costField, bfsQueue);
-                }
-
-                // 3. 방향 필드 구성 (차분 + 평행 보정 통합)
-                for (int y = 0; y < NavMeshGridSize.y; y++)
-                {
-                    for (int x = 0; x < NavMeshGridSize.x; x++)
-                    {
-                        int index = y * NavMeshGridSize.x + x;
-
-                        if (NavMeshMaskInJob[index] == 0)
-                        {
-                            DirectionField[index] = ComputeDirection(x, y, index, costField);
-                        }
-                        else
-                        {
-                            float2 bestDir = float2.zero;
-                            float bestDist = float.PositiveInfinity;
-
-                            // 주변 1~2셀 탐색
-                            for (int dy = -2; dy <= 2; dy++)
-                            {
-                                for (int dx = -2; dx <= 2; dx++)
-                                {
-                                    int nx = x + dx;
-                                    int ny = y + dy;
-                                    if (nx < 0 || ny < 0 || nx >= NavMeshGridSize.x || ny >= NavMeshGridSize.y)
-                                    {
-                                        continue;
-                                    }
-
-                                    int nIdx = ny * NavMeshGridSize.x + nx;
-                                    if (NavMeshMaskInJob[nIdx] != 0) // 유효 셀만
-                                    {
-                                        continue;
-                                    }
-
-                                    float dist = math.length(new float2(dx, dy));
-                                    if (dist < bestDist)
-                                    {
-                                        bestDist = dist;
-                                        bestDir = new float2(dx, dy);
-                                    }
-                                }
-                            }
-
-                            DirectionField[index] = math.normalizesafe(bestDir);
-                        }
-                    }
+                    Relax(cell, new int2(-1, 1), currentCost, bfsQueue);
+                    Relax(cell, new int2(-1, 0), currentCost, bfsQueue);
+                    Relax(cell, new int2(-1, -1), currentCost, bfsQueue);
+                    Relax(cell, new int2(0, 1), currentCost, bfsQueue);
+                    Relax(cell, new int2(0, -1), currentCost, bfsQueue);
+                    Relax(cell, new int2(1, 1), currentCost, bfsQueue);
+                    Relax(cell, new int2(1, 0), currentCost, bfsQueue);
+                    Relax(cell, new int2(1, -1), currentCost, bfsQueue);
                 }
 
                 bfsQueue.Dispose();
-                costField.Dispose();
-            }
-
-            private float2 ComputeDirection(int x, int y, int index, NativeArray<float> costField)
-            {
-                float currentCost = costField[index];
-                if (float.IsPositiveInfinity(currentCost))
-                {
-                    return float2.zero;
-                }
-
-                float dx = 0f, dy = 0f;
-                float invCellSize = 1f / NavMeshCellSize;
-                float invDoubleCellSize = invCellSize * 0.5f;
-
-                // 좌/우 차분
-                bool leftBlocked = false, rightBlocked = false;
-                if (x > 0 && x < NavMeshGridSize.x - 1)
-                {
-                    int leftIndex = index - 1;
-                    int rightIndex = index + 1;
-                    leftBlocked = NavMeshMaskInJob[leftIndex] != 0;
-                    rightBlocked = NavMeshMaskInJob[rightIndex] != 0;
-
-                    if (!leftBlocked && !float.IsPositiveInfinity(costField[leftIndex]) &&
-                        !rightBlocked && !float.IsPositiveInfinity(costField[rightIndex]))
-                    {
-                        dx = (costField[rightIndex] - costField[leftIndex]) * invDoubleCellSize;
-                    }
-                    else if (!rightBlocked && !float.IsPositiveInfinity(costField[rightIndex]))
-                    {
-                        dx = (costField[rightIndex] - currentCost) * invCellSize;
-                    }
-                    else if (!leftBlocked && !float.IsPositiveInfinity(costField[leftIndex]))
-                    {
-                        dx = (currentCost - costField[leftIndex]) * invCellSize;
-                    }
-                }
-
-                // 상/하 차분
-                bool downBlocked = false, upBlocked = false;
-                if (y > 0 && y < NavMeshGridSize.y - 1)
-                {
-                    int downIndex = index - NavMeshGridSize.x;
-                    int upIndex = index + NavMeshGridSize.x;
-                    downBlocked = NavMeshMaskInJob[downIndex] != 0;
-                    upBlocked = NavMeshMaskInJob[upIndex] != 0;
-
-                    if (!downBlocked && !float.IsPositiveInfinity(costField[downIndex]) &&
-                        !upBlocked && !float.IsPositiveInfinity(costField[upIndex]))
-                    {
-                        dy = (costField[upIndex] - costField[downIndex]) * invDoubleCellSize;
-                    }
-                    else if (!upBlocked && !float.IsPositiveInfinity(costField[upIndex]))
-                    {
-                        dy = (costField[upIndex] - currentCost) * invCellSize;
-                    }
-                    else if (!downBlocked && !float.IsPositiveInfinity(costField[downIndex]))
-                    {
-                        dy = (currentCost - costField[downIndex]) * invCellSize;
-                    }
-                }
-
-                // gradient → 비용 감소 방향
-                float2 direction = math.normalizesafe(-new float2(dx, dy));
-
-                // 장애물 평행 보정
-                if ((leftBlocked && direction.x < 0f) || (rightBlocked && direction.x > 0f))
-                {
-                    direction = new float2(0, direction.y);
-                }
-
-                if ((upBlocked && direction.y > 0f) || (downBlocked && direction.y < 0f))
-                {
-                    direction = new float2(direction.x, 0);
-                }
-
-                // Fallback: 코너 셀에서 방향이 완전히 사라질 경우
-                if (math.lengthsq(direction) < 0.0001f)
-                {
-                    // 열린 축을 따라가거나 목표 방향 사용
-                    if (!leftBlocked) direction = new float2(-1, 0);
-                    else if (!rightBlocked) direction = new float2(1, 0);
-                    else if (!upBlocked) direction = new float2(0, 1);
-                    else if (!downBlocked) direction = new float2(0, -1);
-                    else
-                    {
-                        float3 cellWorldPos = NavMeshMinWorldPosition + new float3(x * NavMeshCellSize, 0, y * NavMeshCellSize);
-                        direction = math.normalizesafe((FlowFieldTargetPosition - cellWorldPos).xz);
-                    }
-                }
-
-                return direction;
-            }
-
-            private void Relax(int2 from, int2 offset, float currentCost, NativeArray<float> costField, NativeQueue<int> bfsQueue)
-            {
-                int2 cell = from + offset;
-                if (cell.x < 0 || cell.y < 0 || cell.x >= NavMeshGridSize.x || cell.y >= NavMeshGridSize.y)
-                {
-                    return;
-                }
-
-                int index = cell.y * NavMeshGridSize.x + cell.x;
-                if (NavMeshMaskInJob[index] != 0)
-                {
-                    return;
-                }
-
-                bool diagonal = offset.x != 0 && offset.y != 0;
-                if (diagonal)
-                {
-                    int2 adj1 = new(from.x + offset.x, from.y);
-                    int2 adj2 = new(from.x, from.y + offset.y);
-                    if (NavMeshMaskInJob[adj1.y * NavMeshGridSize.x + adj1.x] != 0 ||
-                        NavMeshMaskInJob[adj2.y * NavMeshGridSize.x + adj2.y] != 0)
-                    {
-                        return;
-                    }
-                }
-
-                float step = diagonal ? 1.41421356f : 1f;
-                float newCost = currentCost + step * NavMeshCellSize;
-                if (newCost < costField[index])
-                {
-                    costField[index] = newCost;
-                    bfsQueue.Enqueue(index);
-                }
             }
 
             private int FindNearestWalkable(int startIndex)
@@ -541,11 +366,196 @@ namespace War.Navigation
 
                 return findIndex;
             }
+
+            private void Relax(int2 from, int2 offset, float currentCost, NativeQueue<int> bfsQueue)
+            {
+                int2 cell = from + offset;
+                if (cell.x < 0 || cell.y < 0 || cell.x >= NavMeshGridSize.x || cell.y >= NavMeshGridSize.y)
+                {
+                    return;
+                }
+
+                int index = cell.y * NavMeshGridSize.x + cell.x;
+                if (NavMeshMaskInJob[index] != 0)
+                {
+                    return;
+                }
+
+                bool diagonal = offset.x != 0 && offset.y != 0;
+                if (diagonal)
+                {
+                    int2 adj1 = new(from.x + offset.x, from.y);
+                    int2 adj2 = new(from.x, from.y + offset.y);
+                    if (NavMeshMaskInJob[adj1.y * NavMeshGridSize.x + adj1.x] != 0 ||
+                        NavMeshMaskInJob[adj2.y * NavMeshGridSize.x + adj2.y] != 0)
+                    {
+                        return;
+                    }
+                }
+
+                float step = diagonal ? 1.41421356f : 1f;
+                float newCost = currentCost + step * NavMeshCellSize;
+                if (newCost < CostField[index])
+                {
+                    CostField[index] = newCost;
+                    bfsQueue.Enqueue(index);
+                }
+            }
+        }
+
+        [BurstCompile]
+        private struct BuildDirectionFieldJob : IJobParallelFor
+        {
+            public NativeArray<float2> DirectionField;
+
+            [ReadOnly] public NativeArray<float>.ReadOnly CostField;
+            [ReadOnly] public float3 FlowFieldTargetPosition;
+            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMaskInJob;
+            [ReadOnly] public int2 NavMeshGridSize;
+            [ReadOnly] public float NavMeshCellSize;
+            [ReadOnly] public float3 NavMeshMinWorldPosition;
+
+
+            public void Execute(int index)
+            {
+                int x = index % NavMeshGridSize.x;
+                int y = index / NavMeshGridSize.x;
+
+                if (NavMeshMaskInJob[index] == 0)
+                {
+                    DirectionField[index] = ComputeDirection(x, y, index);
+                }
+                else
+                {
+                    float2 bestDir = float2.zero;
+                    float bestDist = float.PositiveInfinity;
+
+                    // 주변 1~2셀 탐색
+                    for (int dy = -2; dy <= 2; dy++)
+                    {
+                        for (int dx = -2; dx <= 2; dx++)
+                        {
+                            int nx = x + dx;
+                            int ny = y + dy;
+                            if (nx < 0 || ny < 0 || nx >= NavMeshGridSize.x || ny >= NavMeshGridSize.y)
+                            {
+                                continue;
+                            }
+
+                            int nIdx = ny * NavMeshGridSize.x + nx;
+                            if (NavMeshMaskInJob[nIdx] != 0) // 유효 셀만
+                            {
+                                continue;
+                            }
+
+                            float dist = math.length(new float2(dx, dy));
+                            if (dist < bestDist)
+                            {
+                                bestDist = dist;
+                                bestDir = new float2(dx, dy);
+                            }
+                        }
+                    }
+
+                    DirectionField[index] = math.normalizesafe(bestDir);
+                }
+            }
+
+            private float2 ComputeDirection(int x, int y, int index)
+            {
+                float currentCost = CostField[index];
+                if (float.IsPositiveInfinity(currentCost))
+                {
+                    return float2.zero;
+                }
+
+                float dx = 0f, dy = 0f;
+                float invCellSize = 1f / NavMeshCellSize;
+                float invDoubleCellSize = invCellSize * 0.5f;
+
+                // 좌/우 차분
+                bool leftBlocked = false, rightBlocked = false;
+                if (x > 0 && x < NavMeshGridSize.x - 1)
+                {
+                    int leftIndex = index - 1;
+                    int rightIndex = index + 1;
+                    leftBlocked = NavMeshMaskInJob[leftIndex] != 0;
+                    rightBlocked = NavMeshMaskInJob[rightIndex] != 0;
+
+                    if (!leftBlocked && !float.IsPositiveInfinity(CostField[leftIndex]) &&
+                        !rightBlocked && !float.IsPositiveInfinity(CostField[rightIndex]))
+                    {
+                        dx = (CostField[rightIndex] - CostField[leftIndex]) * invDoubleCellSize;
+                    }
+                    else if (!rightBlocked && !float.IsPositiveInfinity(CostField[rightIndex]))
+                    {
+                        dx = (CostField[rightIndex] - currentCost) * invCellSize;
+                    }
+                    else if (!leftBlocked && !float.IsPositiveInfinity(CostField[leftIndex]))
+                    {
+                        dx = (currentCost - CostField[leftIndex]) * invCellSize;
+                    }
+                }
+
+                // 상/하 차분
+                bool downBlocked = false, upBlocked = false;
+                if (y > 0 && y < NavMeshGridSize.y - 1)
+                {
+                    int downIndex = index - NavMeshGridSize.x;
+                    int upIndex = index + NavMeshGridSize.x;
+                    downBlocked = NavMeshMaskInJob[downIndex] != 0;
+                    upBlocked = NavMeshMaskInJob[upIndex] != 0;
+
+                    if (!downBlocked && !float.IsPositiveInfinity(CostField[downIndex]) &&
+                        !upBlocked && !float.IsPositiveInfinity(CostField[upIndex]))
+                    {
+                        dy = (CostField[upIndex] - CostField[downIndex]) * invDoubleCellSize;
+                    }
+                    else if (!upBlocked && !float.IsPositiveInfinity(CostField[upIndex]))
+                    {
+                        dy = (CostField[upIndex] - currentCost) * invCellSize;
+                    }
+                    else if (!downBlocked && !float.IsPositiveInfinity(CostField[downIndex]))
+                    {
+                        dy = (currentCost - CostField[downIndex]) * invCellSize;
+                    }
+                }
+
+                // gradient → 비용 감소 방향
+                float2 direction = math.normalizesafe(-new float2(dx, dy));
+
+                // 장애물 평행 보정
+                if ((leftBlocked && direction.x < 0f) || (rightBlocked && direction.x > 0f))
+                {
+                    direction = new float2(0, direction.y);
+                }
+
+                if ((upBlocked && direction.y > 0f) || (downBlocked && direction.y < 0f))
+                {
+                    direction = new float2(direction.x, 0);
+                }
+
+                // Fallback: 코너 셀에서 방향이 완전히 사라질 경우
+                if (math.lengthsq(direction) < 0.0001f)
+                {
+                    // 열린 축을 따라가거나 목표 방향 사용
+                    if (!leftBlocked) direction = new float2(-1, 0);
+                    else if (!rightBlocked) direction = new float2(1, 0);
+                    else if (!upBlocked) direction = new float2(0, 1);
+                    else if (!downBlocked) direction = new float2(0, -1);
+                    else
+                    {
+                        float3 cellWorldPos = NavMeshMinWorldPosition + new float3(x * NavMeshCellSize, 0, y * NavMeshCellSize);
+                        direction = math.normalizesafe((FlowFieldTargetPosition - cellWorldPos).xz);
+                    }
+                }
+
+                return direction;
+            }
         }
 
 
-        private static NativeArray<FlowFieldTarget> staticFlowFieldTargets;
-        private static NativeArray<byte> navMeshMask;
+        private static NativeArray<byte> s_navMeshMask;
 
 
         public static float CellSize { get; private set; }
@@ -553,11 +563,15 @@ namespace War.Navigation
         public static float3 MinWorldPositionInGrid { get; private set; }
 
         public static BlobAssetReference<FlowFieldBlobRoot> FlowFieldFlowBlobAssetReference { get; private set; }
-        public static NativeArray<byte>.ReadOnly NavMeshMask => navMeshMask.AsReadOnly();
+        public static NativeArray<byte>.ReadOnly NavMeshMask => s_navMeshMask.AsReadOnly();
 
 
-        public static void Init(float newCellSize, int2 newGridSize, float3 minWorldPositionInGrid, Allocator alloc)
+        public static void Init(in NavigationGrid navigationGrid)
         {
+            int2 newGridSize = navigationGrid.FlowFieldGridSize;
+            float newCellSize = navigationGrid.FlowFieldCellSize;
+            float3 minWorldPositionInGrid = navigationGrid.Min;
+
             if (GridSize.x == newGridSize.x && GridSize.y == newGridSize.y &&
                 mathf.Approximately(CellSize, newCellSize) &&
                 mathf.Approximately(MinWorldPositionInGrid, minWorldPositionInGrid))
@@ -572,7 +586,7 @@ namespace War.Navigation
                 int count = newGridSize.x * newGridSize.y;
 
 
-                navMeshMask = new NativeArray<byte>(count, alloc);
+                s_navMeshMask = new NativeArray<byte>(count, Allocator.Persistent);
 
                 GridSize = newGridSize;
             }
@@ -582,24 +596,14 @@ namespace War.Navigation
 
             BuildNavMeshMask();
 
-            BuildStaticFlowFieldTargets(alloc);
-
-            if (staticFlowFieldTargets.Length > 0)
-            {
-                BuildDirectionField();
-            }
+            BuildFlowFieldFlowBlobAsset(navigationGrid);
         }
 
         public static void Dispose()
         {
-            if (staticFlowFieldTargets.IsCreated)
+            if (s_navMeshMask.IsCreated)
             {
-                staticFlowFieldTargets.Dispose();
-            }
-
-            if (navMeshMask.IsCreated)
-            {
-                navMeshMask.Dispose();
+                s_navMeshMask.Dispose();
             }
         }
 
@@ -619,7 +623,7 @@ namespace War.Navigation
                     {
                         int index = x + y * GridSize.x;
 
-                        navMeshMask[index] = 1;
+                        s_navMeshMask[index] = 1;
                     }
 
                     currentWorldPositionInGrid.x += CellSize;
@@ -629,26 +633,38 @@ namespace War.Navigation
             }
         }
 
-        public static void BuildStaticFlowFieldTargets(Allocator alloc)
+        public static void BuildFlowFieldFlowBlobAsset(in NavigationGrid navigationGrid)
         {
             NativeList<BoundForQuadtree> results = new(Allocator.TempJob);
 
-            QuadtreeJob quadtreeJob = new()
+            new QuadtreeJob
+                {
+                    NavMeshMaskInJob = s_navMeshMask.AsReadOnly(),
+                    NavMeshGridSize = GridSize,
+                    NavMeshCellSize = CellSize,
+                    NavMeshMinWorldPosition = MinWorldPositionInGrid,
+
+                    MinSize = navigationGrid.FlowFieldMinGridCellCount,
+                    Tolerance = navigationGrid.FlowFieldWalkableToleranceForDivide,
+
+                    Bounds = results
+                }
+                .Run();
+
+            if (results.Length == 0)
             {
-                NavMeshMaskInJob = navMeshMask.AsReadOnly(),
-                NavMeshGridSize = GridSize,
-                NavMeshCellSize = CellSize,
-                NavMeshMinWorldPosition = MinWorldPositionInGrid,
+                results.Dispose();
 
-                MinSize = 8,
-                Tolerance = 0.9f,
+                return;
+            }
 
-                Bounds = results
-            };
-            quadtreeJob.Run();
+            new MergeBoundsJob
+                {
+                    Bounds = results,
 
-            MergeBoundsJob mergeJob = new() { Bounds = results };
-            mergeJob.Run();
+                    ValidWalkableRatio = navigationGrid.FlowFieldValidWalkableRatio,
+                }
+                .Run();
 
             new ExpandBoundsJob
                 {
@@ -661,61 +677,90 @@ namespace War.Navigation
                 .Schedule(results.Length, 64)
                 .Complete();
 
-            staticFlowFieldTargets = new NativeArray<FlowFieldTarget>(results.Length, alloc);
+            NativeArray<FlowFieldTargetForBuffer> flowFieldTargetBuffer = new(results.Length, Allocator.TempJob);
 
             for (int i = 0; i < results.Length; i++)
             {
                 SimpleBounds bounds = results[i].Bounds;
 
-                staticFlowFieldTargets[i] = new FlowFieldTarget
+                flowFieldTargetBuffer[i] = new FlowFieldTargetForBuffer
                 {
                     FlowId = i,
                     AreaBounds = bounds,
-                    DirectionField = new NativeArray<float2>(GridSize.x * GridSize.y, alloc)
+                    DirectionField = new NativeArray<float2>(GridSize.x * GridSize.y, Allocator.TempJob)
                 };
             }
 
             results.Dispose();
+
+            BuildDirectionField(flowFieldTargetBuffer);
+
+            for (int i = 0; i < flowFieldTargetBuffer.Length; i++)
+            {
+                flowFieldTargetBuffer[i].DirectionField.Dispose();
+            }
+
+            flowFieldTargetBuffer.Dispose();
         }
 
-        private static void BuildDirectionField()
+        private static void BuildDirectionField(in NativeArray<FlowFieldTargetForBuffer> flowFieldTargetBuffer)
         {
-            JobHandle dependency = default;
+            JobHandle rootDependency = default;
+            JobHandle dependency = rootDependency;
 
-            for (int i = 0, count = staticFlowFieldTargets.Length; i < count; i++)
+            for (int i = 0, count = flowFieldTargetBuffer.Length; i < count; i++)
             {
-                dependency = JobHandle.CombineDependencies(
-                    dependency,
-                    new BuildDirectionFieldJob
-                        {
-                            DirectionField = staticFlowFieldTargets[i].DirectionField,
+                NativeArray<float> costField = new(GridSize.x * GridSize.y, Allocator.TempJob);
 
-                            FlowFieldTargetPosition = staticFlowFieldTargets[i].Position,
-                            NavMeshMaskInJob = navMeshMask.AsReadOnly(),
+                JobHandle buildCostFieldJobHandle =
+                    new BuildCostFieldJob
+                        {
+                            CostField = costField,
+
+                            FlowFieldTargetPosition = flowFieldTargetBuffer[i].Position,
+                            NavMeshMaskInJob = s_navMeshMask.AsReadOnly(),
                             NavMeshGridSize = GridSize,
                             NavMeshCellSize = CellSize,
                             NavMeshMinWorldPosition = MinWorldPositionInGrid
                         }
-                        .Schedule(dependency));
+                        .Schedule(rootDependency);
+
+                JobHandle buildDirectionFieldJobHandle =
+                    new BuildDirectionFieldJob
+                        {
+                            DirectionField = flowFieldTargetBuffer[i].DirectionField,
+
+                            CostField = costField.AsReadOnly(),
+                            FlowFieldTargetPosition = flowFieldTargetBuffer[i].Position,
+                            NavMeshMaskInJob = s_navMeshMask.AsReadOnly(),
+                            NavMeshGridSize = GridSize,
+                            NavMeshCellSize = CellSize,
+                            NavMeshMinWorldPosition = MinWorldPositionInGrid
+                        }
+                        .Schedule(costField.Length, 64, buildCostFieldJobHandle);
+
+                JobHandle buildJobHandle = costField.Dispose(buildDirectionFieldJobHandle);
+
+                dependency = JobHandle.CombineDependencies(dependency, buildJobHandle);
             }
 
             dependency.Complete();
 
-            FlowFieldFlowBlobAssetReference = Build(staticFlowFieldTargets);
+            FlowFieldFlowBlobAssetReference = Build(flowFieldTargetBuffer);
         }
 
-        private static BlobAssetReference<FlowFieldBlobRoot> Build(NativeArray<FlowFieldTarget> sourceTargets)
+        private static BlobAssetReference<FlowFieldBlobRoot> Build(NativeArray<FlowFieldTargetForBuffer> sourceTargets)
         {
             BlobBuilder builder = new(Allocator.Temp);
             ref FlowFieldBlobRoot root = ref builder.ConstructRoot<FlowFieldBlobRoot>();
 
             // FlowFieldTarget 배열 크기만큼 BlobArray 할당
-            BlobBuilderArray<FlowFieldTargetBlob> targets = builder.Allocate(ref root.Targets, sourceTargets.Length);
+            BlobBuilderArray<FlowFieldTarget> targets = builder.Allocate(ref root.FlowFieldTargets, sourceTargets.Length);
 
             for (int i = 0; i < sourceTargets.Length; i++)
             {
-                FlowFieldTarget src = sourceTargets[i];
-                ref FlowFieldTargetBlob dst = ref targets[i];
+                FlowFieldTargetForBuffer src = sourceTargets[i];
+                ref FlowFieldTarget dst = ref targets[i];
 
                 dst.FlowId = src.FlowId;
                 dst.AreaBounds = src.AreaBounds;

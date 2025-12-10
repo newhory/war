@@ -6,12 +6,15 @@ namespace War.Navigation
 {
     public struct NavigationGrid : IComponentData
     {
-        public float NeighborHashCellSize;
         public int2 NeighborHashGridSize;
+        public float NeighborHashCellSize;
         public int MaxMaxNeighborCount;
         
-        public float FlowFieldCellSize;
         public int2 FlowFieldGridSize;
+        public float FlowFieldCellSize;
+        public int FlowFieldMinGridCellCount;
+        public float FlowFieldWalkableToleranceForDivide;
+        public float FlowFieldValidWalkableRatio;
 
         public float3 Center;
         public float3 Extents;

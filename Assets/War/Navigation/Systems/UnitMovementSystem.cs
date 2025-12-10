@@ -50,11 +50,11 @@ namespace War.Navigation.Systems
                 float3 oldDir = math.normalizesafe(new float3(unitVelocity.Value.x, 0, unitVelocity.Value.z));
 
                 int positionFlowId = -1;
-                for (int i = 0, count = flowFieldBlobReference.Blob.Value.Targets.Length; i < count; ++i)
+                for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
                 {
-                    if (flowFieldBlobReference.Blob.Value.Targets[i].AreaBounds.Contains(position.xz))
+                    if (flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i].AreaBounds.Contains(position.xz))
                     {
-                        positionFlowId = flowFieldBlobReference.Blob.Value.Targets[i].FlowId;
+                        positionFlowId = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i].FlowId;
 
                         break;
                     }
@@ -153,9 +153,9 @@ namespace War.Navigation.Systems
                 float2 baseFlow = float2.zero;
                 bool baseOk = false;
 
-                for (int i = 0, count = flowFieldBlobReference.Blob.Value.Targets.Length; i < count; ++i)
+                for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
                 {
-                    ref FlowFieldTargetBlob flowFieldTarget = ref flowFieldBlobReference.Blob.Value.Targets[i];
+                    ref FlowFieldTarget flowFieldTarget = ref flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i];
                     if (flowFieldTarget.FlowId != flowId)
                     {
                         continue;
@@ -207,7 +207,7 @@ namespace War.Navigation.Systems
                 }
 
                 // 현재 셀이 0벡터면: 반경 내 가장 가까운 유효 셀에서 방향 샘플링 (Nearest Valid Sampling)
-                ref FlowFieldTargetBlob t = ref flowFieldBlobReference.Blob.Value.Targets[flowFieldTargetIndex];
+                ref FlowFieldTarget t = ref flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[flowFieldTargetIndex];
 
                 int2 currentCell = FlowFieldQuery.WorldToCell(worldPos, FlowFieldGridSize, FlowFieldCellSize, MinWorldPositionInGrid);
 

@@ -35,7 +35,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, entity, new UnitPreferredSide());
                 EntityCommandBuffer.AddComponent(index, entity, new BlockAhead());
                 EntityCommandBuffer.AddComponent(index, entity, new StandingCooldown());
-                EntityCommandBuffer.AddComponent(index, entity, new FlowFieldBlobReference { Blob = FlowFieldBlobRootBlob });
+                EntityCommandBuffer.AddComponent(index, entity, new FlowFieldBlobReference { BlobAssetReference = FlowFieldBlobRootBlob });
             }
         }
 

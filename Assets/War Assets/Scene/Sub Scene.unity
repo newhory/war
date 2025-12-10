@@ -352,6 +352,9 @@ MonoBehaviour:
   neighborHashCellSize: 1.2
   maxMaxNeighborCount: 12
   flowFieldCellSize: 1.2
+  flowFieldMinGridCellCount: 8
+  flowFieldWalkableToleranceForDivide: 0.9
+  flowFieldValidWalkableRatio: 0.4
 --- !u!4 &1968585434
 Transform:
   m_ObjectHideFlags: 0
@@ -439,8 +442,8 @@ PrefabInstance:
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
+  - {fileID: 1968585434}
   - {fileID: 1912183348}
   - {fileID: 2014221950805335717}
   - {fileID: 1309080115}
   - {fileID: 182164926}
-  - {fileID: 1968585434}
