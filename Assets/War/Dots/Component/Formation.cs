@@ -13,6 +13,7 @@ namespace War.Dots.Component
     {
         public int Id;
         public Entity Entity;
+        public float UnitRadius;
         public int HorizontalUnitCount;
     }
 
@@ -28,5 +29,10 @@ namespace War.Dots.Component
     public struct ResetFormationUnitIndex : IBufferElementData
     {
         public Formation Formation;
+    }
+
+    public struct FormationUnitPosition : IBufferElementData
+    {
+        public float3 Position;
     }
 }

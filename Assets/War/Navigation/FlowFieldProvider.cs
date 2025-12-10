@@ -12,9 +12,6 @@ namespace War.Navigation
     [BurstCompile]
     public static class FlowFieldProvider
     {
-        private static readonly int2[] s_offsets = { new(-1, 0), new(1, 0), new(0, -1), new(0, 1) };
-
-
         private struct QuadtreeNode
         {
             public int2 Min;
@@ -323,49 +320,7 @@ namespace War.Navigation
                 bfsQueue.Dispose();
             }
 
-            private int FindNearestWalkable(int startIndex)
-            {
-                NativeQueue<int> searchQueue = new(Allocator.Temp);
-                NativeArray<bool> visited = new(NavMeshGridSize.x * NavMeshGridSize.y, Allocator.Temp);
-
-                searchQueue.Enqueue(startIndex);
-                visited[startIndex] = true;
-
-                int findIndex = startIndex;
-
-                while (searchQueue.TryDequeue(out int index))
-                {
-                    int2 cell = FlowFieldQuery.IndexToCell(index, NavMeshGridSize);
-
-                    if (NavMeshMaskInJob[index] == 0)
-                    {
-                        findIndex = index;
-
-                        break;
-                    }
-
-                    foreach (int2 off in s_offsets)
-                    {
-                        int2 nextCell = cell + off;
-                        if (nextCell.x < 0 || nextCell.y < 0 || nextCell.x >= NavMeshGridSize.x || nextCell.y >= NavMeshGridSize.y)
-                        {
-                            continue;
-                        }
-
-                        int nextIndex = FlowFieldQuery.CellToIndex(nextCell, NavMeshGridSize);
-                        if (!visited[nextIndex])
-                        {
-                            visited[nextIndex] = true;
-                            searchQueue.Enqueue(nextIndex);
-                        }
-                    }
-                }
-
-                searchQueue.Dispose();
-                visited.Dispose();
-
-                return findIndex;
-            }
+            private int FindNearestWalkable(int startIndex) => FlowFieldQuery.FindNearestWalkableIndexInNavMeshMask(startIndex, NavMeshMaskInJob, NavMeshGridSize);
 
             private void Relax(int2 from, int2 offset, float currentCost, NativeQueue<int> bfsQueue)
             {
