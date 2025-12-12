@@ -113,12 +113,9 @@ namespace War.Dots.Component.ComponentSystem
                     in
                     SystemAPI.Query<RefRW<LocalTransform>, RefRW<Destination>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
                 {
-                    refDestination.ValueRW.Position = destination;
+                    ecb.SetComponentEnabled<TroopFormationReset>(entity, true);
+                    ecb.SetComponent(entity, new TroopFormationReset { TroopPosition = destination });
                     
-                    float3 troopPosition = refLocalTransform.ValueRO.Position;
-                    refLocalTransform.ValueRW.Position = destination;
-                    refLocalTransform.ValueRW.Rotation = quaternion.LookRotationSafe(math.normalize(destination - troopPosition), math.up());
-
                     ecb.SetComponentEnabled<TroopAISearchTarget>(entity, true);
                 }
 

@@ -6,4 +6,9 @@ namespace War.Dots.Component.ComponentSystem.Group
     public partial class InputUpdateGroup : ComponentSystemGroup
     {
     }
+
+    [UpdateInGroup(typeof(InputUpdateGroup), OrderLast = true)]
+    public partial class TroopSystemGroup : ComponentSystemGroup
+    {
+    }
 }

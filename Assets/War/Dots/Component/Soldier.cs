@@ -1,5 +1,6 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 
 namespace War.Dots.Component
@@ -28,6 +29,8 @@ namespace War.Dots.Component
     {
         public int TroopId;
         public Entity TroopEntity;
+        public float Radius;
+        public float3 PositionInFormation;
     }
 
     public struct SoldierWeapon : IComponentData
@@ -66,6 +69,10 @@ namespace War.Dots.Component
 
         public State Current;
         public State Next;
+    }
+    
+    public struct SoldierUpdatePositionInFormation : IComponentData, IEnableableComponent
+    {
     }
 
     public struct SoldierSpatialHashMap : IComponentData

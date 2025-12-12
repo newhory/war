@@ -1,5 +1,4 @@
-﻿using System.Collections.Generic;
-using Unity.Burst;
+﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -8,7 +7,8 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.InputUpdateGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
+    [UpdateAfter(typeof(JustSpawnedInitializeSystem))]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopSystem : ISystem
     {
@@ -19,7 +19,14 @@ namespace War.Dots.Component.ComponentSystem
 
 
             private void Execute(Entity soldierEntity, in SoldierAttachedTroop soldierAttachedTroop, in LocalTransform localTransform) =>
-                TroopSoldierLookup.Add(soldierAttachedTroop.TroopEntity, new TroopSoldier { Entity = soldierEntity, Position = localTransform.Position });
+                TroopSoldierLookup.Add(
+                    soldierAttachedTroop.TroopEntity,
+                    new TroopSoldier
+                    {
+                        Entity = soldierEntity,
+                        Radius = soldierAttachedTroop.Radius,
+                        Position = localTransform.Position,
+                    });
         }
 
         [BurstCompile]
@@ -30,17 +37,67 @@ namespace War.Dots.Component.ComponentSystem
 
             private void Execute(Entity troopEntity, DynamicBuffer<TroopSoldier> troopSoldierBuffer)
             {
-                troopSoldierBuffer.Clear();
-
                 if (!TroopSoldierLookup.TryGetFirstValue(troopEntity, out TroopSoldier value, out NativeParallelMultiHashMapIterator<Entity> iterator))
                 {
+                    troopSoldierBuffer.Clear();
+
                     return;
                 }
 
+                int currentSoldierCount = troopSoldierBuffer.Length;
+                int newSoldierCount = 0;
+
+                NativeHashSet<Entity> troopSoldierEntities = new(currentSoldierCount, Allocator.Temp);
+
                 do
                 {
-                    troopSoldierBuffer.Add(value);
+                    bool hasFound = false;
+                    for (int i = 0; i < currentSoldierCount; ++i)
+                    {
+                        TroopSoldier troopSoldier = troopSoldierBuffer[i];
+                        if (value.Entity == troopSoldier.Entity)
+                        {
+                            hasFound = true;
+
+                            troopSoldier.Position = value.Position;
+                            troopSoldierEntities.Add(troopSoldier.Entity);
+
+                            troopSoldierBuffer[i] = troopSoldier;
+
+                            newSoldierCount++;
+
+                            break;
+                        }
+                    }
+
+                    if (!hasFound)
+                    {
+                        troopSoldierEntities.Add(value.Entity);
+                        troopSoldierBuffer.Add(value);
+
+                        newSoldierCount++;
+                    }
                 } while (TroopSoldierLookup.TryGetNextValue(out value, ref iterator));
+
+                if (currentSoldierCount != newSoldierCount)
+                {
+                    for (int i = currentSoldierCount - 1; i >= 0; --i)
+                    {
+                        if (!troopSoldierEntities.Contains(troopSoldierBuffer[i].Entity))
+                        {
+                            troopSoldierBuffer.RemoveAtSwapBack(i);
+                        }
+                    }
+
+                    for (int i = 0, count = troopSoldierBuffer.Length; i < count; ++i)
+                    {
+                        TroopSoldier troopSoldier = troopSoldierBuffer[i];
+                        troopSoldier.IndexInFormation = i;
+                        troopSoldierBuffer[i] = troopSoldier;
+                    }
+                }
+
+                troopSoldierEntities.Dispose();
             }
         }
 
@@ -109,10 +166,10 @@ namespace War.Dots.Component.ComponentSystem
                         TroopSoldierLookup = troopSoldierLookup.AsReadOnly()
                     }
                     .ScheduleParallel(_troopQuery, dependency);
-            
+
             dependency = troopSoldierLookup.Dispose(dependency);
 
-            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+            EndInitializationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
 
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
             dependency = new RemoveDeadTroopJob { EntityCommandBuffer = ecb.AsParallelWriter(), CurrentTime = SystemAPI.Time.ElapsedTime }.Schedule(_troopQuery, dependency);

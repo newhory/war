@@ -2,15 +2,12 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
-using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.InputUpdateGroup))]
-    [UpdateAfter(typeof(TroopSystem))]
+    [UpdateInGroup(typeof(Group.TroopSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopHullPointSystem : ISystem
     {
@@ -182,60 +179,6 @@ namespace War.Dots.Component.ComponentSystem
                 if (a.y > b.y) return 1;
 
                 return 0;
-            }
-        }
-
-        [BurstCompile]
-        private partial struct UpdateFormationUnitPositionJob : IJobEntity
-        {
-            private void Execute(DynamicBuffer<TroopSoldier> troopSoldiers, DynamicBuffer<FormationUnitPosition> formationUnitPositions, in LocalTransform localTransform, in FormationEntity formationEntity)
-            {
-                // 1.포메이션 로컬 위치 구성
-                // 가로 - formationEntity.HorizontalUnitCount
-                // 세로 - (int)math.ceil(troopSoldiers.Length / formationEntity.HorizontalUnitCount)
-                // 간격 - formationEntity.UnitRadius
-                // 2. 중앙 정규화
-                // 3. localTransform.TransformPoint()로 월드 좌표로 변경 
-                // 4. 월드 좌표중에 유효하지 않은 위치에 있는 좌표를 유효한 위치로 옮김
-
-                formationUnitPositions.Clear();
-
-                int troopSoldierCount = troopSoldiers.Length;
-                if (troopSoldierCount == 0)
-                {
-                    return;
-                }
-
-                int formationWidth = formationEntity.HorizontalUnitCount;
-                int formationHeight = (int)math.ceil(troopSoldierCount / (float)formationWidth);
-                float formationUnitRadius = formationEntity.UnitRadius;
-                float3 sumLocalPosition = float3.zero;
-
-                NativeArray<float3> soldierPositions = new(troopSoldierCount, Allocator.Temp);
-
-                for (int y = 0; y < formationHeight; ++y)
-                {
-                    for (int x = 0; x < formationWidth; ++x)
-                    {
-                        int index = y * formationWidth + x;
-                        if (index >= troopSoldierCount)
-                        {
-                            break;
-                        }
-
-                        float3 localPos = new(x * formationUnitRadius, 0f, y * formationUnitRadius);
-
-                        soldierPositions[index] = localPos;
-                        sumLocalPosition += localPos;
-                    }
-                }
-
-                float3 center = sumLocalPosition / troopSoldierCount;
-                LocalTransform troopTransform = localTransform;
-                for (int i = 0; i < troopSoldierCount; ++i)
-                {
-                    formationUnitPositions.Add(new FormationUnitPosition { Position = troopTransform.TransformPoint(soldierPositions[i] - center) });
-                }
             }
         }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.Splines;
@@ -377,7 +378,7 @@ namespace War
                 }
                 else
                 {
-                    Destination destination = _entityManager.GetComponentData<Destination>(selectedTroopEntity);
+                    LocalTransform destination = _entityManager.GetComponentData<LocalTransform>(selectedTroopEntity);
                     Vector3 destinationPosition = destination.Position;
                     destinationPosition.y = height;
 

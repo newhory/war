@@ -3,30 +3,14 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Physics;
-using ZLinq;
 
 
 namespace War.Dots.Component.ComponentSystem
 {
     [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderFirst = true)]
     [RequireMatchingQueriesForUpdate]
-    public partial struct SoldierInitializeSystem : ISystem
+    public partial struct JustSpawnedInitializeSystem : ISystem
     {
-        [BurstCompile]
-        private partial struct AddResetFormationUnitIndexJob : IJobEntity
-        {
-            [ReadOnly] public NativeHashSet<int>.ReadOnly ResetFormationIds;
-
-
-            private void Execute(DynamicBuffer<ResetFormationUnitIndex> resetFormationUnitIndexBuffer)
-            {
-                foreach (int resetFormationId in ResetFormationIds)
-                {
-                    resetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = resetFormationId } });
-                }
-            }
-        }
-
         [BurstCompile]
         private partial struct CollectTroopJob : IJobEntity
         {
@@ -63,14 +47,13 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public int BlueTeamLayer;
 
 
-            private void Execute([EntityIndexInQuery] int index, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref FormationUnit formationUnit, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
+            private void Execute([EntityIndexInQuery] int index, ref Soldier soldier, ref SoldierAttachedTroop soldierAttachedTroop, ref PhysicsCollider physicsCollider, in NavMeshAgentData navMeshAgentData, in Team team)
             {
                 soldier.Id = SoldierIds[index];
 
                 if (TroopEntityMap.TryGetValue(soldierAttachedTroop.TroopId, out Entity troopEntity))
                 {
                     soldierAttachedTroop.TroopEntity = troopEntity;
-                    formationUnit.FormationEntity = troopEntity;
                 }
 
                 if (physicsCollider.Value is { IsCreated: true, Value: { Type: ColliderType.Capsule } })
@@ -140,7 +123,6 @@ namespace War.Dots.Component.ComponentSystem
         private EntityQuery _troopQuery;
         private EntityQuery _spawnTroopQuery;
         private EntityQuery _spawnSoldierQuery;
-        private EntityQuery _resetFormationUnitIndexQuery;
 
 
         public void OnCreate(ref SystemState state)
@@ -158,13 +140,8 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<NavMeshAgentData, Team, SpawnSoldierSystem.JustSpawnedSoldier>()
                     .WithAllRW<Soldier>()
-                    .WithAllRW<SoldierAttachedTroop, FormationUnit>()
+                    .WithAllRW<SoldierAttachedTroop>()
                     .WithAllRW<PhysicsCollider>()
-                    .Build();
-
-            _resetFormationUnitIndexQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<ResetFormationUnitIndex>()
                     .Build();
 
             s_soldierId = 0;
@@ -180,16 +157,6 @@ namespace War.Dots.Component.ComponentSystem
 
             NativeParallelHashMap<int, Entity> troopEntityMap = new(_troopQuery.CalculateEntityCount(), Allocator.TempJob);
             NativeArray<int> soldierIds = new(_spawnSoldierQuery.CalculateEntityCount(), Allocator.TempJob);
-
-            NativeArray<FormationUnit> formationUnits = _spawnSoldierQuery.ToComponentDataArray<FormationUnit>(Allocator.TempJob);
-            NativeHashSet<int> resetFormationIds = new(formationUnits.Length, Allocator.TempJob);
-            foreach (int formationId in formationUnits.AsValueEnumerable().Select(formationUnit => formationUnit.FormationId))
-            {
-                resetFormationIds.Add(formationId);
-            }
-
-            dependency = new AddResetFormationUnitIndexJob { ResetFormationIds = resetFormationIds.AsReadOnly() }.Schedule(_resetFormationUnitIndexQuery, dependency);
-            dependency = JobHandle.CombineDependencies(resetFormationIds.Dispose(dependency), formationUnits.Dispose(dependency));
 
             dependency = new CollectTroopJob { TroopEntityMap = troopEntityMap.AsParallelWriter() }.ScheduleParallel(_troopQuery, dependency);
             dependency = new FillSoldierIdJob { SoldierIds = soldierIds, CurrentSoldierId = s_soldierId }.Schedule(dependency);

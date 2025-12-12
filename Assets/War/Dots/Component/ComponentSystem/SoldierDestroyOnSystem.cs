@@ -2,6 +2,8 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
+using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -12,53 +14,47 @@ namespace War.Dots.Component.ComponentSystem
     public partial struct SoldierDestroyOnSystem : ISystem
     {
         [BurstCompile]
-        private partial struct CatchNeedToUpdateFormationId : IJobEntity
+        private partial struct CatchNeedToUpdateFormation : IJobEntity
         {
-            public NativeParallelHashSet<int>.ParallelWriter NeedToUpdateFormationIds;
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
             [ReadOnly] public double CurrentTime;
+            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
+            [ReadOnly] public ComponentLookup<TroopFormationReset> TroopFormationResetLookup;
 
 
-            private void Execute(in DestroyOn destroyOn, in Formation formation)
+            private void Execute([EntityIndexInQuery] int index, in DestroyOn destroyOn, in SoldierAttachedTroop soldierAttachedTroop)
             {
                 if (CurrentTime >= destroyOn.DestroyTime)
                 {
-                    NeedToUpdateFormationIds.Add(formation.Id);
-                }
-            }
-        }
+                    if (TroopFormationResetLookup.HasComponent(soldierAttachedTroop.TroopEntity) &&
+                        !TroopFormationResetLookup.IsComponentEnabled(soldierAttachedTroop.TroopEntity))
+                    {
+                        float3 troopPosition = LocalTransformLookup[soldierAttachedTroop.TroopEntity].Position;
 
-        [BurstCompile]
-        private struct AddResetFormationUnitIndex : IJob
-        {
-            [ReadOnly] public NativeParallelHashSet<int>.ReadOnly NeedToUpdateFormationIds;
-
-            public DynamicBuffer<ResetFormationUnitIndex> ResetFormationUnitIndexBuffer;
-
-
-            public void Execute()
-            {
-                if (NeedToUpdateFormationIds.IsEmpty)
-                {
-                    return;
-                }
-
-                foreach (int formationId in NeedToUpdateFormationIds)
-                {
-                    ResetFormationUnitIndexBuffer.Add(new ResetFormationUnitIndex { Formation = new Formation { Id = formationId } });
+                        EntityCommandBuffer.SetComponentEnabled<TroopFormationReset>(index, soldierAttachedTroop.TroopEntity, true);
+                        EntityCommandBuffer.SetComponent(index, soldierAttachedTroop.TroopEntity, new TroopFormationReset { TroopPosition = troopPosition });
+                    }
                 }
             }
         }
 
 
         private EntityQuery _destroyOnSoldierQuery;
+        private ComponentLookup<LocalTransform> _localTransformLookup;
+        private ComponentLookup<TroopFormationReset> _troopFormationResetLookup;
 
 
-        public void OnCreate(ref SystemState state) =>
+        public void OnCreate(ref SystemState state)
+        {
             _destroyOnSoldierQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, DestroyOn, Formation>()
+                    .WithAll<Soldier, DestroyOn, SoldierAttachedTroop>()
                     .Build();
+
+            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
+            _troopFormationResetLookup = state.GetComponentLookup<TroopFormationReset>(true);
+        }
 
         public void OnDestroy(ref SystemState state)
         {
@@ -66,30 +62,26 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
+            _localTransformLookup.Update(ref state);
+            _troopFormationResetLookup.Update(ref state);
+
             JobHandle dependency = state.Dependency;
 
-            NativeParallelHashSet<int> needToUpdateFormationIds = new(100, Allocator.TempJob);
+            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
             dependency =
-                new CatchNeedToUpdateFormationId
+                new CatchNeedToUpdateFormation
                     {
-                        NeedToUpdateFormationIds = needToUpdateFormationIds.AsParallelWriter(),
+                        EntityCommandBuffer = ecb.AsParallelWriter(),
 
                         CurrentTime = SystemAPI.Time.ElapsedTime,
+                        LocalTransformLookup = _localTransformLookup,
+                        TroopFormationResetLookup = _troopFormationResetLookup,
                     }
                     .ScheduleParallel(_destroyOnSoldierQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
 
-            dependency =
-                new AddResetFormationUnitIndex
-                    {
-                        NeedToUpdateFormationIds = needToUpdateFormationIds.AsReadOnly(),
-
-                        ResetFormationUnitIndexBuffer = FormationUnitIndexingSystem.GetResetFormationUnitIndexBuffer(state.EntityManager)
-                    }
-                    .Schedule(dependency);
-
-            dependency = needToUpdateFormationIds.Dispose(dependency);
-            
             state.Dependency = dependency;
         }
     }

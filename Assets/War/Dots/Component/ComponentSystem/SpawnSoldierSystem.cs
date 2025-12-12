@@ -68,7 +68,11 @@ namespace War.Dots.Component.ComponentSystem
             #region soldier
 
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Soldier { Type = soldierForSpawn.SoldierType });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAttachedTroop { TroopId = soldierForSpawn.TroopId });
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAttachedTroop
+                {
+                    TroopId = soldierForSpawn.TroopId,
+                    Radius = soldierData.radiusInFormation,
+                });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierWeapon { Type = soldierData.weapon });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierTargetForAttack { TargetSoldier = Entity.Null });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierAnimation { Next = SoldierAnimation.State.Default });
@@ -84,9 +88,9 @@ namespace War.Dots.Component.ComponentSystem
             #endregion
 
             #region formation
-
-                EntityCommandBuffer.AddSharedComponent(index, soldierEntity, new Formation { Id = soldierForSpawn.TroopId });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new FormationUnit { FormationId = soldierForSpawn.TroopId, Radius = soldierData.radiusInFormation });
+                
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierUpdatePositionInFormation());
+                EntityCommandBuffer.SetComponentEnabled<SoldierUpdatePositionInFormation>(index, soldierEntity, false);
 
             #endregion
 
@@ -171,7 +175,12 @@ namespace War.Dots.Component.ComponentSystem
 
                 EntityCommandBuffer.AddSharedComponent(index, troopEntity, new Troop { Id = troopForSpawn.TroopId });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new Team { Color = troopForSpawn.TeamColor });
-                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopEntity { Id = troopForSpawn.TroopId, Entity = troopEntity });
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopEntity
+                {
+                    Id = troopForSpawn.TroopId,
+                    Entity = troopEntity,
+                    HorizontalUnitCount = troopForSpawn.TroopHorizonSoldierCount,
+                });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopSelected());
                 EntityCommandBuffer.SetComponentEnabled<TroopSelected>(index, troopEntity, false);
@@ -185,17 +194,8 @@ namespace War.Dots.Component.ComponentSystem
             #endregion
 
             #region formation
-
-                EntityCommandBuffer.AddSharedComponent(index, troopEntity, new Formation { Id = troopForSpawn.TroopId });
-                EntityCommandBuffer.AddComponent(
-                    index,
-                    troopEntity,
-                    new FormationEntity
-                    {
-                        Id = troopForSpawn.TroopId,
-                        Entity = troopEntity,
-                        HorizontalUnitCount = troopForSpawn.TroopHorizonSoldierCount,
-                    });
+                
+                EntityCommandBuffer.AddComponent(index, troopEntity, new TroopFormationReset { TroopPosition = new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y) });
 
             #endregion
 
@@ -208,10 +208,6 @@ namespace War.Dots.Component.ComponentSystem
                         new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y),
                         troopForSpawn.TroopRotation,
                         1f));
-
-                //EntityCommandBuffer.AddComponent(index, troopEntity, new Velocity());
-                //EntityCommandBuffer.AddComponent(index, troopEntity, new Forward { Value = math.forward(troopForSpawn.TroopRotation) });
-                EntityCommandBuffer.AddComponent(index, troopEntity, new Destination { Position = new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y) });
 
             #endregion
 

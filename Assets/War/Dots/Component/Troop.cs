@@ -13,6 +13,7 @@ namespace War.Dots.Component
     {
         public int Id;
         public Entity Entity;
+        public int HorizontalUnitCount;
     }
 
     public struct TroopTargetForAttack : IComponentData
@@ -46,7 +47,15 @@ namespace War.Dots.Component
     public struct TroopSoldier : IBufferElementData
     {
         public Entity Entity;
+        public float Radius;
         public float3 Position;
+        public int IndexInFormation;
+        public float3 PositionInFormation;
+    }
+
+    public struct TroopFormationReset : IComponentData, IEnableableComponent
+    {
+        public float3 TroopPosition;
     }
 
     public struct TroopHullPoint : IBufferElementData

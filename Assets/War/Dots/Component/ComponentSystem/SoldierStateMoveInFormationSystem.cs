@@ -1,7 +1,5 @@
 ﻿using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -13,45 +11,27 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdateDestinationJob : IJobEntity
         {
-            [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
-
-
-            private void Execute(ref Destination destination, in FormationUnit formationUnit)
-            {
-                if (!LocalTransformLookup.TryGetComponent(formationUnit.FormationEntity, out LocalTransform formationLocalTransform))
-                {
-                    return;
-                }
-
-                destination.Position.xz = formationLocalTransform.TransformPoint(formationUnit.LocalPositionInFormation).xz;
-            }
+            private static void Execute(ref Destination destination, in SoldierAttachedTroop soldierAttachedTroop) => destination.Position.xz = soldierAttachedTroop.PositionInFormation.xz;
         }
 
 
-        private EntityQuery _formationUnitQuery;
-        private ComponentLookup<LocalTransform> _localTransformLookup;
+        private EntityQuery _soldierQuery;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _formationUnitQuery =
+            _soldierQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, SoldierStateMoveInFormation, Formation, FormationUnit>()
+                    .WithAll<Soldier, Alive, SoldierStateMoveInFormation>()
+                    .WithAll<SoldierAttachedTroop>()
                     .WithAllRW<Destination>()
                     .Build();
-
-            _localTransformLookup = state.GetComponentLookup<LocalTransform>(true);
         }
 
         public void OnDestroy(ref SystemState state)
         {
         }
 
-        public void OnUpdate(ref SystemState state)
-        {
-            _localTransformLookup.Update(ref state);
-
-            state.Dependency = new UpdateDestinationJob { LocalTransformLookup = _localTransformLookup }.ScheduleParallel(_formationUnitQuery, state.Dependency);
-        }
+        public void OnUpdate(ref SystemState state) => state.Dependency = new UpdateDestinationJob().ScheduleParallel(_soldierQuery, state.Dependency);
     }
 }

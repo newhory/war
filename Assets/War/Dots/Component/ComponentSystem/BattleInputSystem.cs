@@ -285,17 +285,9 @@ namespace War.Dots.Component.ComponentSystem
                             if (currentPickedTroop == Entity.Null) // CurrentSelectedEntity is not Null
                             {
                                 state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopTargetForAttack { TargetTroop = Entity.Null });
-
-                                var troopTransform = state.EntityManager.GetComponentData<LocalTransform>(CurrentSelectedEntity);
-                                state.EntityManager.SetComponentData(CurrentSelectedEntity, new Destination { Position = onDragEndRaycastHit.Position });
-                                state.EntityManager.SetComponentData(
-                                    CurrentSelectedEntity,
-                                    new LocalTransform
-                                    {
-                                        Position = onDragEndRaycastHit.Position,
-                                        Rotation = quaternion.LookRotationSafe(math.normalizesafe(onDragEndRaycastHit.Position - troopTransform.Position), math.up()),
-                                        Scale = 1f
-                                    });
+                                
+                                state.EntityManager.SetComponentEnabled<TroopFormationReset>(CurrentSelectedEntity, true);
+                                state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopFormationReset { TroopPosition = onDragEndRaycastHit.Position });
 
                                 state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(CurrentSelectedEntity, false);
                                 state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);
@@ -306,6 +298,9 @@ namespace War.Dots.Component.ComponentSystem
                                 if (CurrentSelectedTeamColor != teamColor)
                                 {
                                     state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopTargetForAttack { TargetTroop = currentPickedTroop });
+                                    
+                                    state.EntityManager.SetComponentEnabled<TroopFormationReset>(CurrentSelectedEntity, true);
+                                    state.EntityManager.SetComponentData(CurrentSelectedEntity, new TroopFormationReset { TroopPosition = onDragEndRaycastHit.Position });
 
                                     state.EntityManager.SetComponentEnabled<TroopAICheckTargetValid>(CurrentSelectedEntity, true);
                                     state.EntityManager.SetComponentEnabled<TroopAISearchTarget>(CurrentSelectedEntity, false);
