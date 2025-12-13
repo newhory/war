@@ -144,7 +144,7 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Soldier, Troop, Alive, LocalTransform, SoldierAttachedTroop>()
                     .Build();
 
-            _troopSoldierLookup = new NativeParallelMultiHashMap<Entity, TroopSoldier>(1024, Allocator.Persistent);
+            _troopSoldierLookup = new NativeParallelMultiHashMap<Entity, TroopSoldier>(12288, Allocator.Persistent);
         }
 
         public void OnDestroy(ref SystemState state)
