@@ -120,7 +120,8 @@ namespace War.Dots.Component.ComponentSystem
             {
                 if (troopSoldierBuffer.IsEmpty)
                 {
-                    EntityCommandBuffer.DestroyEntity(index, troopEntity);
+                    EntityCommandBuffer.SetComponentEnabled<Alive>(index, troopEntity, false);
+                    EntityCommandBuffer.AddComponent(index, troopEntity, new DestroyOn { DestroyTime = -1.0f });
                 }
             }
         }
