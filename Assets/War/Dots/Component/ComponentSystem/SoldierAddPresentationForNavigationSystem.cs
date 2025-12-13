@@ -24,11 +24,11 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public BlobAssetReference<FlowFieldBlobRoot> FlowFieldBlobRootBlob;
 
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity, in LocalTransform localTransform, in Velocity velocity, in Destination destination, in NavMeshAgentData navMeshAgentData, in MoveSpeed moveSpeed)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, in LocalTransform localTransform, in Velocity velocity, in SoldierDestination soldierDestination, in NavMeshAgentData navMeshAgentData, in MoveSpeed moveSpeed)
             {
                 EntityCommandBuffer.AddComponent(index, entity, new UnitPosition { Value = localTransform.Position });
                 EntityCommandBuffer.AddComponent(index, entity, new UnitVelocity { Value = velocity.Value });
-                EntityCommandBuffer.AddComponent(index, entity, new UnitDestination { Value = destination.Position, FlowFieldId = -1 });
+                EntityCommandBuffer.AddComponent(index, entity, new UnitDestination { Value = soldierDestination.Position, FlowFieldId = -1 });
                 EntityCommandBuffer.AddComponent(index, entity, new UnitRadius { Value = navMeshAgentData.Radius });
                 EntityCommandBuffer.AddComponent(index, entity, new UnitMaxSpeed { Value = moveSpeed.CurrentMax });
                 EntityCommandBuffer.AddComponent(index, entity, new StandingObstacle());
@@ -112,7 +112,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             _soldierForUnitQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, LocalTransform, Velocity, Destination, NavMeshAgentData, MoveSpeed>()
+                    .WithAll<Soldier, Alive, LocalTransform, Velocity, SoldierDestination, NavMeshAgentData, MoveSpeed>()
                     .WithAll<NavigationAPI>()
                     .WithNone<UnitPosition, UnitVelocity, UnitDestination>()
                     .WithNone<UnitRadius, UnitMaxSpeed, StandingObstacle>()

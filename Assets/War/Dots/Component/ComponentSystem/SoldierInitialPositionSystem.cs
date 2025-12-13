@@ -12,8 +12,8 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdatePositionJob : IJobEntity
         {
-            private static void Execute(ref LocalTransform localTransform, ref Destination destination, in SoldierAttachedTroop soldierAttachedTroop) =>
-                destination.Position = localTransform.Position = soldierAttachedTroop.PositionInFormation;
+            private static void Execute(ref LocalTransform localTransform, ref SoldierDestination soldierDestination, in SoldierAttachedTroop soldierAttachedTroop) =>
+                soldierDestination.Position = localTransform.Position = soldierAttachedTroop.PositionInFormation;
         }
 
 
@@ -24,7 +24,7 @@ namespace War.Dots.Component.ComponentSystem
             _formationUnitQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, SoldierAttachedTroop>()
-                    .WithAllRW<LocalTransform, Destination>()
+                    .WithAllRW<LocalTransform, SoldierDestination>()
                     .WithNone<PooledGameObject>()
                     .Build();
 

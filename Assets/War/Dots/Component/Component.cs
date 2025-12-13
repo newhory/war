@@ -56,7 +56,7 @@ namespace War.Dots.Component
         public float3 OldValue;
     }
 
-    public struct Destination : IComponentData
+    public struct SoldierDestination : IComponentData
     {
         public float3 Position;
         public float3 OldPosition;

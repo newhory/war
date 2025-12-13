@@ -109,9 +109,9 @@ namespace War.Dots.Component.ComponentSystem
 
                 EntityCommandBuffer ecb = new(Allocator.Temp);
                 foreach (
-                    (RefRW<LocalTransform> refLocalTransform, RefRW<Destination> refDestination, Entity entity)
+                    (RefRW<LocalTransform> refLocalTransform, Entity entity)
                     in
-                    SystemAPI.Query<RefRW<LocalTransform>, RefRW<Destination>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
+                    SystemAPI.Query<RefRW<LocalTransform>>().WithAll<TroopEntity>().WithDisabled<TroopAISearchTarget>().WithEntityAccess())
                 {
                     ecb.SetComponentEnabled<TroopFormationReset>(entity, true);
                     ecb.SetComponent(entity, new TroopFormationReset { TroopPosition = destination });

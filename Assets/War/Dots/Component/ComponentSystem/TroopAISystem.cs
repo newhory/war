@@ -21,24 +21,18 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity, ref Destination destination, ref TroopTargetForAttack targetForAttack)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, ref TroopTargetForAttack targetForAttack)
             {
                 if (targetForAttack.TargetTroop != Entity.Null)
                 {
                     float3 troopPosition = LocalTransformLookup[entity].Position;
                     float3 otherTroopPos = LocalTransformLookup[targetForAttack.TargetTroop].Position;
                     
-                    destination.Position = otherTroopPos;
-                    
-                    EntityCommandBuffer.SetComponent(
-                        index,
-                        entity,
-                        new LocalTransform
-                        {
-                            Position = troopPosition,
-                            Rotation = quaternion.LookRotationSafe(math.normalizesafe(otherTroopPos - troopPosition), math.up()),
-                            Scale = 1f
-                        });
+                    if (!mathf.Approximately(troopPosition, otherTroopPos))
+                    {
+                        EntityCommandBuffer.SetComponentEnabled<TroopFormationReset>(index, entity, true);
+                        EntityCommandBuffer.SetComponent(index, entity, new TroopFormationReset { TroopPosition = otherTroopPos });
+                    }
 
                     EntityCommandBuffer.SetComponentEnabled<TroopAISearchTarget>(index, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<TroopAICheckTargetValid>(index, entity, true);
@@ -173,7 +167,6 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Troop, Alive, TroopEntity, TroopTargetForAttack, LocalTransform>()
                     .WithAny<TroopAICheckTargetValid, TroopAISearchTarget>()
-                    .WithAllRW<Destination>()
                     .Build();
 
             _aliveSoldierQuery =

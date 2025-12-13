@@ -27,7 +27,7 @@ namespace War.Dots.Component.ComponentSystem
 
             private void Execute(
                 [EntityIndexInQuery] int index, Entity soldierEntity,
-                ref Attack attack, ref SoldierTargetForAttack targetForAttack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref Destination moveToDestination,
+                ref Attack attack, ref SoldierTargetForAttack targetForAttack, ref SoldierAnimation soldierAnimation, ref Forward forward, ref SoldierDestination soldierDestination,
                 in Team team, in LocalTransform localTransform,
                 in SoldierWeapon soldierWeapon, in AttackData attackData, in AttackPower attackPower, in AttackRange attackRange)
             {
@@ -120,7 +120,7 @@ namespace War.Dots.Component.ComponentSystem
                         {
                             attack.AttackStep = Attack.Step.NotYet;
 
-                            moveToDestination.Position = pos;
+                            soldierDestination.Position = pos;
 
                             EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, soldierEntity, true);
                             EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, soldierEntity, false);
@@ -148,7 +148,7 @@ namespace War.Dots.Component.ComponentSystem
                     .WithAll<Alive, Soldier, SoldierStateAttackTarget, LocalTransform>()
                     .WithAll<Team, NavMeshAgentData, SoldierWeapon, AttackData, AttackPower, AttackRange>()
                     .WithAllRW<Attack, SoldierAnimation>()
-                    .WithAllRW<Forward, Destination>()
+                    .WithAllRW<Forward, SoldierDestination>()
                     .WithAllRW<SoldierTargetForAttack>()
                     .Build();
 

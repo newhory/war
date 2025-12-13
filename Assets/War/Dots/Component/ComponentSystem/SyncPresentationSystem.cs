@@ -71,12 +71,12 @@ namespace War.Dots.Component.ComponentSystem
             }
 
             foreach (
-                (RefRW<MoveSpeed> moveSpeed, RefRW<Destination> destination, RefRO<UnityNavMeshAgent> unityNavMeshAgent)
+                (RefRW<MoveSpeed> moveSpeed, RefRW<SoldierDestination> destination, RefRO<UnityNavMeshAgent> unityNavMeshAgent)
                 in
-                SystemAPI.Query<RefRW<MoveSpeed>, RefRW<Destination>, RefRO<UnityNavMeshAgent>>()
+                SystemAPI.Query<RefRW<MoveSpeed>, RefRW<SoldierDestination>, RefRO<UnityNavMeshAgent>>()
                     .WithAll<Movable>()
                     .WithChangeFilter<MoveSpeed>()
-                    .WithChangeFilter<Destination>())
+                    .WithChangeFilter<SoldierDestination>())
             {
                 bool isSpeedChanged = false;
                 MoveSpeed moveSpeedValue = moveSpeed.ValueRO;
@@ -88,10 +88,10 @@ namespace War.Dots.Component.ComponentSystem
                 }
 
                 bool isDestinationChanged = false;
-                Destination destinationValue = destination.ValueRO;
-                if (!mathf.Approximately(destinationValue.Position.xz, destinationValue.OldPosition.xz))
+                SoldierDestination soldierDestination = destination.ValueRO;
+                if (!mathf.Approximately(soldierDestination.Position.xz, soldierDestination.OldPosition.xz))
                 {
-                    destination.ValueRW.OldPosition = destinationValue.Position;
+                    destination.ValueRW.OldPosition = soldierDestination.Position;
 
                     isDestinationChanged = true;
                 }
@@ -108,7 +108,7 @@ namespace War.Dots.Component.ComponentSystem
 
                         if (isDestinationChanged)
                         {
-                            agent.destination = destinationValue.Position;
+                            agent.destination = soldierDestination.Position;
                         }
                     }
                 }

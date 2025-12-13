@@ -102,7 +102,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Acceleration { Value = float3.zero, Max = soldierForSpawn.SoldierData.moveAcceleration });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new MoveSpeed { Max = soldierData.moveSpeed, CurrentMax = soldierData.moveSpeed });
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new Forward { Value = math.forward(soldierForSpawn.Rotation) });
-                EntityCommandBuffer.AddComponent(index, soldierEntity, new Destination());
+                EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierDestination());
 
             #endregion
 

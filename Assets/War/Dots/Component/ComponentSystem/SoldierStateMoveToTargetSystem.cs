@@ -22,7 +22,7 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity, ref SoldierTargetForAttack targetForAttack, ref Destination moveToDestination, in LocalTransform localTransform, in AttackRange attackRange)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, ref SoldierTargetForAttack targetForAttack, ref SoldierDestination soldierDestination, in LocalTransform localTransform, in AttackRange attackRange)
             {
                 if (targetForAttack.TargetSoldier == Entity.Null ||
                     !DamagedLookup.HasBuffer(targetForAttack.TargetSoldier))
@@ -39,7 +39,7 @@ namespace War.Dots.Component.ComponentSystem
                 float dist = math.distance(localTransform.Position, targetPos);
                 if (dist <= attackRange.Value)
                 {
-                    moveToDestination.Position = localTransform.Position;
+                    soldierDestination.Position = localTransform.Position;
 
                     EntityCommandBuffer.SetComponentEnabled<SoldierStateMoveToTarget>(index, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<SoldierStateAttackTarget>(index, entity, true);
@@ -50,7 +50,7 @@ namespace War.Dots.Component.ComponentSystem
                 }
                 else
                 {
-                    moveToDestination.Position = targetPos;
+                    soldierDestination.Position = targetPos;
                 }
             }
         }
@@ -67,7 +67,7 @@ namespace War.Dots.Component.ComponentSystem
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, SoldierStateMoveToTarget, LocalTransform, AttackRange>()
-                    .WithAllRW<SoldierTargetForAttack, Destination>()
+                    .WithAllRW<SoldierTargetForAttack, SoldierDestination>()
                     .Build();
 
             _damagedLookup = state.GetBufferLookup<Damaged>(true);

@@ -11,7 +11,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdateDestinationJob : IJobEntity
         {
-            private static void Execute(ref Destination destination, in SoldierAttachedTroop soldierAttachedTroop) => destination.Position.xz = soldierAttachedTroop.PositionInFormation.xz;
+            private static void Execute(ref SoldierDestination soldierDestination, in SoldierAttachedTroop soldierAttachedTroop) => soldierDestination.Position.xz = soldierAttachedTroop.PositionInFormation.xz;
         }
 
 
@@ -24,7 +24,7 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, SoldierStateMoveInFormation>()
                     .WithAll<SoldierAttachedTroop>()
-                    .WithAllRW<Destination>()
+                    .WithAllRW<SoldierDestination>()
                     .Build();
         }
 
