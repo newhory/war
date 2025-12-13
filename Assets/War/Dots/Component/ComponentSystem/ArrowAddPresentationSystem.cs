@@ -7,7 +7,7 @@ using UnityEngine.Pool;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
+    [UpdateInGroup(typeof(Group.AddPresentationSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct ArrowAddPresentationSystem : ISystem, ISystemStartStop
     {

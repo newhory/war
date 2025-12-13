@@ -7,11 +7,20 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
+    [UpdateInGroup(typeof(Group.TroopInitializeSystemGroup))]
     [UpdateAfter(typeof(JustSpawnedInitializeSystem))]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopSystem : ISystem
     {
+        [BurstCompile]
+        private struct ClearTroopSolderLookupJob : IJob
+        {
+            public NativeParallelMultiHashMap<Entity, TroopSoldier> TroopSoldierLookup;
+
+
+            public void Execute() => TroopSoldierLookup.Clear();
+        }
+
         [BurstCompile]
         private partial struct CollectSoldierPositionJob : IJobEntity
         {
@@ -106,16 +115,12 @@ namespace War.Dots.Component.ComponentSystem
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
-            [ReadOnly] public double CurrentTime;
-
 
             private void Execute([EntityIndexInQuery] int index, Entity troopEntity, DynamicBuffer<TroopSoldier> troopSoldierBuffer)
             {
                 if (troopSoldierBuffer.IsEmpty)
                 {
-                    EntityCommandBuffer.SetComponentEnabled<Alive>(index, troopEntity, false);
-
-                    EntityCommandBuffer.AddComponent(index, troopEntity, new DestroyOn { DestroyTime = CurrentTime });
+                    EntityCommandBuffer.DestroyEntity(index, troopEntity);
                 }
             }
         }
@@ -123,6 +128,7 @@ namespace War.Dots.Component.ComponentSystem
 
         private EntityQuery _troopQuery;
         private EntityQuery _soldierQuery;
+        private NativeParallelMultiHashMap<Entity, TroopSoldier> _troopSoldierLookup;
 
 
         public void OnCreate(ref SystemState state)
@@ -136,10 +142,16 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Troop, Alive, LocalTransform, SoldierAttachedTroop>()
                     .Build();
+
+            _troopSoldierLookup = new NativeParallelMultiHashMap<Entity, TroopSoldier>(1024, Allocator.Persistent);
         }
 
         public void OnDestroy(ref SystemState state)
         {
+            if (_troopSoldierLookup.IsCreated)
+            {
+                _troopSoldierLookup.Dispose();
+            }
         }
 
         public void OnUpdate(ref SystemState state)
@@ -151,28 +163,26 @@ namespace War.Dots.Component.ComponentSystem
 
             JobHandle dependency = state.Dependency;
 
-            NativeParallelMultiHashMap<Entity, TroopSoldier> troopSoldierLookup = new(_soldierQuery.CalculateEntityCount(), Allocator.TempJob);
+            dependency = new ClearTroopSolderLookupJob { TroopSoldierLookup = _troopSoldierLookup }.Schedule(dependency);
 
             dependency =
                 new CollectSoldierPositionJob
                     {
-                        TroopSoldierLookup = troopSoldierLookup.AsParallelWriter()
+                        TroopSoldierLookup = _troopSoldierLookup.AsParallelWriter()
                     }
                     .ScheduleParallel(_soldierQuery, dependency);
 
             dependency =
                 new FillTroopSoldierBufferJob
                     {
-                        TroopSoldierLookup = troopSoldierLookup.AsReadOnly()
+                        TroopSoldierLookup = _troopSoldierLookup.AsReadOnly()
                     }
                     .ScheduleParallel(_troopQuery, dependency);
 
-            dependency = troopSoldierLookup.Dispose(dependency);
-
-            EndInitializationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
+            BeginInitializationEntityCommandBufferSystem ecbSystem = state.World.GetExistingSystemManaged<BeginInitializationEntityCommandBufferSystem>();
 
             EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
-            dependency = new RemoveDeadTroopJob { EntityCommandBuffer = ecb.AsParallelWriter(), CurrentTime = SystemAPI.Time.ElapsedTime }.Schedule(_troopQuery, dependency);
+            dependency = new RemoveDeadTroopJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_troopQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
             state.Dependency = dependency;

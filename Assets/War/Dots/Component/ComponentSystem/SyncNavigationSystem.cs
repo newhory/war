@@ -10,20 +10,14 @@ namespace War.Dots.Component.ComponentSystem
     using Navigation;
 
 
-    [UpdateInGroup(typeof(Group.ViewSystemGroup))]
+    [UpdateInGroup(typeof(Navigation.Systems.Group.NavigationSystemGroup), OrderFirst = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct SyncNavigationSystem : ISystem
     {
         [BurstCompile]
         private partial struct SyncMovableJob : IJobEntity
         {
-            [ReadOnly] public int2 NavMeshGridSize;
-            [ReadOnly] public float NavMeshCellSize;
-            [ReadOnly] public float3 NavMeshMinWorldPosition;
-            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMask;
-
-
-            private void Execute(
+            private static void Execute(
                 ref StandingObstacle standingObstacle, ref UnitDestination unitDestination, ref UnitMaxSpeed unitMaxSpeed,
                 ref Destination destination, in MoveSpeed moveSpeed, in FlowFieldBlobReference flowFieldBlobReference)
             {
@@ -46,25 +40,6 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         unitDestination.FlowFieldId = target.FlowId;
                         break;
-                    }
-                }
-
-                if (unitDestination.FlowFieldId < 0 &&
-                    FlowFieldQuery.TryFindNearestWalkableWorldPosition(
-                        unitDestination.Value, NavMeshMask, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition, out float3 walkablePosition))
-                {
-                    float2 walkablePositionXZ = walkablePosition.xz;
-
-                    for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
-                    {
-                        ref FlowFieldTarget target = ref flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i];
-                        if (target.AreaBounds.Contains(walkablePositionXZ))
-                        {
-                            unitDestination.FlowFieldId = target.FlowId;
-                            destination.Position.xz = walkablePositionXZ;
-                            unitDestination.Value.xz = walkablePositionXZ;
-                            break;
-                        }
                     }
                 }
 
@@ -106,15 +81,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             JobHandle dependency = state.Dependency;
 
-            dependency =
-                new SyncMovableJob
-                    {
-                        NavMeshGridSize = FlowFieldProvider.GridSize,
-                        NavMeshCellSize = FlowFieldProvider.CellSize,
-                        NavMeshMinWorldPosition = FlowFieldProvider.MinWorldPositionInGrid,
-                        NavMeshMask = FlowFieldProvider.NavMeshMask
-                    }
-                    .ScheduleParallel(_movableSoldierForUnitQuery, dependency);
+            dependency = new SyncMovableJob().ScheduleParallel(_movableSoldierForUnitQuery, dependency);
             dependency = new SyncUnmovableJob().ScheduleParallel(_unmovableSoldierForUnitQuery, dependency);
 
             state.Dependency = dependency;

@@ -1,13 +1,14 @@
 ﻿using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
+    [UpdateInGroup(typeof(Group.TroopInitializeSystemGroup))]
     [UpdateAfter(typeof(TroopSystem))]
     [RequireMatchingQueriesForUpdate]
     public partial struct TroopFormationResetSystem : ISystem
@@ -83,6 +84,7 @@ namespace War.Dots.Component.ComponentSystem
 
 
         private EntityQuery _troopQuery;
+        private SystemHandle _entityCommandBufferSystemHandle;
 
 
         [BurstCompile]
@@ -96,10 +98,15 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            EntityCommandBuffer ecb = new(Allocator.TempJob);
-            new RepositionSoldiersJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_troopQuery, state.Dependency).Complete();
-            ecb.Playback(state.EntityManager);
-            ecb.Dispose();
+            JobHandle dependency = state.Dependency;
+            
+            BeginInitializationEntityCommandBufferSystem ecbSystem = state.World.GetExistingSystemManaged<BeginInitializationEntityCommandBufferSystem>();
+            
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            dependency = new RepositionSoldiersJob { EntityCommandBuffer = ecb.AsParallelWriter() }.ScheduleParallel(_troopQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+            
+            state.Dependency = dependency;
         }
 
         [BurstCompile]

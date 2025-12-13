@@ -18,7 +18,7 @@ namespace War.Dots.Component.ComponentSystem
     {
         private struct SyncTransformJob : IJobParallelForTransform
         {
-            [ReadOnly] public NativeArray<LocalTransform> LocalTransforms;
+            [ReadOnly] public NativeArray<LocalTransform>.ReadOnly LocalTransforms;
 
 
             public void Execute(int index, TransformAccess transform)
@@ -46,16 +46,18 @@ namespace War.Dots.Component.ComponentSystem
 
         public void OnUpdate(ref SystemState state)
         {
-            NativeArray<LocalTransform> localTransforms = _syncTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
-            NativeArray<UnityTransform> unityTransforms = _syncTransformQuery.ToComponentDataArray<UnityTransform>(Allocator.TempJob);
+            if (_syncTransformQuery.IsEmpty)
+            {
+                return;
+            }
 
             JobHandle dependency = state.Dependency;
 
+            NativeArray<LocalTransform> localTransforms = _syncTransformQuery.ToComponentDataArray<LocalTransform>(Allocator.TempJob);
+            NativeArray<UnityTransform> unityTransforms = _syncTransformQuery.ToComponentDataArray<UnityTransform>(Allocator.TempJob);
+
             dependency =
-                new SyncTransformJob
-                    {
-                        LocalTransforms = localTransforms
-                    }
+                new SyncTransformJob { LocalTransforms = localTransforms.AsReadOnly() }
                     .Schedule(
                         new TransformAccessArray(unityTransforms.AsValueEnumerable().Select(unityTransform => unityTransform.Transform.Value).ToArray()),
                         dependency);

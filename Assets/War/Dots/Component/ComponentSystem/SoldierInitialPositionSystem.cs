@@ -5,9 +5,7 @@ using Unity.Transforms;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup))]
-    [UpdateAfter(typeof(SoldierUpdatePositionInFormationSystem))]
-    [UpdateBefore(typeof(SoldierAddPresentationSystem))]
+    [UpdateInGroup(typeof(Group.SoldierInitializeSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SoldierInitialPositionSystem : ISystem
     {

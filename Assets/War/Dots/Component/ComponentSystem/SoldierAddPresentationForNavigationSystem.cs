@@ -13,7 +13,7 @@ namespace War.Dots.Component.ComponentSystem
     using Navigation;
 
 
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(Group.AddPresentationSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial class SoldierAddPresentationForNavigationSystem : SystemBase
     {

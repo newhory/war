@@ -6,7 +6,7 @@ using UnityEngine.AI;
 
 namespace War.Navigation.Systems
 {
-    [UpdateInGroup(typeof(Group.NavigationSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(Group.NavigationSystemGroup))]
     public partial struct NavigationGridSystem : ISystem
     {
         public void OnCreate(ref SystemState state)

@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Mathematics;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -12,7 +13,7 @@ namespace War.Dots.Component.ComponentSystem
     [UpdateInGroup(typeof(Group.SoldierInitializeSystemGroup))]
     [UpdateBefore(typeof(SoldierInitialPositionSystem))]
     [RequireMatchingQueriesForUpdate]
-    public partial struct SoldierUpdatePositionInFormationSystem : ISystem
+    public partial struct SoldierUpdatePositionInFormationForNavigationSystem : ISystem
     {
         [BurstCompile]
         private partial struct UpdatePositionInFormationJob : IJobEntity
@@ -20,6 +21,10 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
             [ReadOnly] public BufferLookup<TroopSoldier> TroopSoldierLookup;
+            [ReadOnly] public int2 NavMeshGridSize;
+            [ReadOnly] public float NavMeshCellSize;
+            [ReadOnly] public float3 NavMeshMinWorldPosition;
+            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMask;
 
 
             private void Execute([EntityIndexInQuery] int index, Entity soldierEntity, ref SoldierAttachedTroop soldierAttachedTroop)
@@ -36,7 +41,18 @@ namespace War.Dots.Component.ComponentSystem
                     TroopSoldier troopSoldier = troopSoldiers[i];
                     if (troopSoldier.Entity == soldierEntity)
                     {
-                        soldierAttachedTroop.PositionInFormation = troopSoldier.PositionInFormation;
+                        float3 positionInFormation = troopSoldier.PositionInFormation;
+                        if (!FlowFieldQuery.IsWalkable(positionInFormation, NavMeshMask, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition))
+                        {
+                            if (FlowFieldQuery.TryFindNearestWalkableWorldPosition(positionInFormation, NavMeshMask, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition, out float3 walkablePosition))
+                            {
+                                positionInFormation = walkablePosition;
+                            }
+                        }
+
+                        soldierAttachedTroop.PositionInFormation = positionInFormation;
+
+                        break;
                     }
                 }
             }
@@ -54,7 +70,7 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<Soldier, Alive, SoldierAttachedTroop>()
                     .WithAll<SoldierUpdatePositionInFormation>()
-                    .WithNone<UnitPosition>()
+                    .WithAll<UnitPosition>()
                     .Build();
 
             _troopSoldierLookup = state.GetBufferLookup<TroopSoldier>(true);
@@ -74,7 +90,11 @@ namespace War.Dots.Component.ComponentSystem
                     {
                         EntityCommandBuffer = ecb.AsParallelWriter(),
 
-                        TroopSoldierLookup = _troopSoldierLookup
+                        TroopSoldierLookup = _troopSoldierLookup,
+                        NavMeshGridSize = FlowFieldProvider.GridSize,
+                        NavMeshCellSize = FlowFieldProvider.CellSize,
+                        NavMeshMinWorldPosition = FlowFieldProvider.MinWorldPositionInGrid,
+                        NavMeshMask = FlowFieldProvider.NavMeshMask
                     }
                     .ScheduleParallel(_soldierQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);

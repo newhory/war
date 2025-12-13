@@ -10,8 +10,8 @@ namespace War.Dots.Component.ComponentSystem
     using Navigation;
 
 
-    [UpdateInGroup(typeof(Group.FirstUpdateGroup))]
-    [UpdateBefore(typeof(SoldierSpatialHashMapBuildSystem))]
+    [UpdateInGroup(typeof(Navigation.Systems.Group.NavigationSystemGroup))]
+    [UpdateAfter(typeof(Navigation.Systems.UnitMovementSystem))]
     [RequireMatchingQueriesForUpdate]
     public partial struct SyncFromNavigationSystem : ISystem
     {

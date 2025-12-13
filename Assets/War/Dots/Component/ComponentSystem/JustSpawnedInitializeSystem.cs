@@ -7,7 +7,7 @@ using Unity.Physics;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderFirst = true)]
+    [UpdateInGroup(typeof(Group.TroopInitializeSystemGroup), OrderFirst = true)]
     [RequireMatchingQueriesForUpdate]
     public partial struct JustSpawnedInitializeSystem : ISystem
     {
@@ -175,7 +175,7 @@ namespace War.Dots.Component.ComponentSystem
 
             if (!_spawnSoldierQuery.IsEmpty || !_spawnTroopQuery.IsEmpty)
             {
-                EndInitializationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
+                BeginInitializationEntityCommandBufferSystem ecbSystem = state.World.GetExistingSystemManaged<BeginInitializationEntityCommandBufferSystem>();
 
                 if (!_spawnSoldierQuery.IsEmpty)
                 {

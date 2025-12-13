@@ -9,7 +9,7 @@ using ZLinq;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateInGroup(typeof(Group.JustSpawnedInitializeSystemGroup), OrderLast = true)]
+    [UpdateInGroup(typeof(Group.AddPresentationSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
     public partial class SoldierAddPresentationSystem : SystemBase
     {

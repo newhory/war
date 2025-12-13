@@ -31,8 +31,11 @@ namespace War.Navigation
         public static float3 IndexToWorldPosition(int index, in int2 gridSize, float cellSize, in float3 minWorldPositionInGrid)
         {
             int2 cell = IndexToCell(index, gridSize);
-            return minWorldPositionInGrid + new float3(cell.x, 0, cell.y) * cellSize;
+            return minWorldPositionInGrid + new float3(cell.x, 0, cell.y) * cellSize + new float3(cellSize * 0.5f, 0, cellSize * 0.5f);
         }
+
+        public static bool IsWalkable(in float3 worldPos, in NativeArray<byte>.ReadOnly navMeshMask, in int2 gridSize, float cellSize, in float3 minWorldPositionInGrid) =>
+            navMeshMask[WorldToIndex(worldPos, gridSize, cellSize, minWorldPositionInGrid)] == 0;
 
         public static bool TryFindNearestWalkableWorldPosition(in float3 worldPos, in NativeArray<byte>.ReadOnly navMeshMask, in int2 gridSize, float cellSize, in float3 minWorldPositionInGrid, out float3 worldPosition)
         {
