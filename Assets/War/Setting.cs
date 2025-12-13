@@ -157,8 +157,7 @@ namespace War
             {
                 _selectedFlowFieldTargetIndex = fieldFlowBlobAssetReference.Value.FlowFieldTargets.Length - 1;
             }
-
-            /*
+            
             if (_selectedFlowFieldTargetIndex >= 0 && _selectedFlowFieldTargetIndex < fieldFlowBlobAssetReference.Value.FlowFieldTargets.Length)
             {
                 ref FlowFieldTarget selectedFlowFieldTarget = ref fieldFlowBlobAssetReference.Value.FlowFieldTargets[_selectedFlowFieldTargetIndex];
@@ -187,7 +186,6 @@ namespace War
                     }
                 }
             }
-            */
 
             Gizmos.color = gizmosColor;
         }
