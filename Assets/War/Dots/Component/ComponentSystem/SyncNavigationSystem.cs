@@ -19,31 +19,14 @@ namespace War.Dots.Component.ComponentSystem
         {
             private static void Execute(
                 ref StandingObstacle standingObstacle, ref UnitDestination unitDestination, ref UnitMaxSpeed unitMaxSpeed,
-                ref SoldierDestination soldierDestination, in MoveSpeed moveSpeed, in FlowFieldBlobReference flowFieldBlobReference)
+                ref SoldierDestination soldierDestination, in MoveSpeed moveSpeed, in SoldierAttachedTroop soldierAttachedTroop)
             {
                 standingObstacle.Movable = 1;
 
                 unitMaxSpeed.Value = moveSpeed.CurrentMax;
 
-                if (mathf.Approximately(soldierDestination.Position, soldierDestination.OldPosition))
-                {
-                    return;
-                }
-
-                unitDestination.FlowFieldId = -1;
+                unitDestination.FlowFieldId = soldierAttachedTroop.TroopFlowFieldId;
                 unitDestination.Value.xz = soldierDestination.Position.xz;
-
-                for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
-                {
-                    ref FlowFieldTarget target = ref flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i];
-                    if (target.AreaBounds.Contains(soldierDestination.Position.xz))
-                    {
-                        unitDestination.FlowFieldId = target.FlowId;
-                        break;
-                    }
-                }
-
-                soldierDestination.OldPosition = soldierDestination.Position;
             }
         }
 
@@ -63,7 +46,7 @@ namespace War.Dots.Component.ComponentSystem
         {
             _movableSoldierForUnitQuery =
                 SystemAPI.QueryBuilder()
-                    .WithAll<Soldier, Alive, MoveSpeed, SoldierDestination, FlowFieldBlobReference>()
+                    .WithAll<Soldier, Alive, MoveSpeed, SoldierDestination, SoldierAttachedTroop>()
                     .WithAll<Movable>()
                     .WithAllRW<StandingObstacle>()
                     .WithAllRW<UnitDestination, UnitMaxSpeed>()

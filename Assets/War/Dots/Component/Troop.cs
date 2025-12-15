@@ -49,6 +49,7 @@ namespace War.Dots.Component
         public Entity Entity;
         public float Radius;
         public float3 Position;
+        public int FlowFieldId;
         public int IndexInFormation;
         public float3 PositionInFormation;
     }

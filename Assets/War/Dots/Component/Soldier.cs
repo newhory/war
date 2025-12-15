@@ -30,6 +30,7 @@ namespace War.Dots.Component
         public int TroopId;
         public Entity TroopEntity;
         public float Radius;
+        public int TroopFlowFieldId;
         public float3 PositionInFormation;
     }
 

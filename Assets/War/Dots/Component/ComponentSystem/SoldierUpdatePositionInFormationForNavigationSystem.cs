@@ -21,10 +21,6 @@ namespace War.Dots.Component.ComponentSystem
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
             [ReadOnly] public BufferLookup<TroopSoldier> TroopSoldierLookup;
-            [ReadOnly] public int2 NavMeshGridSize;
-            [ReadOnly] public float NavMeshCellSize;
-            [ReadOnly] public float3 NavMeshMinWorldPosition;
-            [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMask;
 
 
             private void Execute([EntityIndexInQuery] int index, Entity soldierEntity, ref SoldierAttachedTroop soldierAttachedTroop)
@@ -42,14 +38,8 @@ namespace War.Dots.Component.ComponentSystem
                     if (troopSoldier.Entity == soldierEntity)
                     {
                         float3 positionInFormation = troopSoldier.PositionInFormation;
-                        if (!FlowFieldQuery.IsWalkable(positionInFormation, NavMeshMask, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition))
-                        {
-                            if (FlowFieldQuery.TryFindNearestWalkableWorldPosition(positionInFormation, NavMeshMask, NavMeshGridSize, NavMeshCellSize, NavMeshMinWorldPosition, out float3 walkablePosition))
-                            {
-                                positionInFormation = walkablePosition;
-                            }
-                        }
 
+                        soldierAttachedTroop.TroopFlowFieldId = troopSoldier.FlowFieldId;
                         soldierAttachedTroop.PositionInFormation = positionInFormation;
 
                         break;
@@ -91,10 +81,6 @@ namespace War.Dots.Component.ComponentSystem
                         EntityCommandBuffer = ecb.AsParallelWriter(),
 
                         TroopSoldierLookup = _troopSoldierLookup,
-                        NavMeshGridSize = FlowFieldProvider.GridSize,
-                        NavMeshCellSize = FlowFieldProvider.CellSize,
-                        NavMeshMinWorldPosition = FlowFieldProvider.MinWorldPositionInGrid,
-                        NavMeshMask = FlowFieldProvider.NavMeshMask
                     }
                     .ScheduleParallel(_soldierQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);

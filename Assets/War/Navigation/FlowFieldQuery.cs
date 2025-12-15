@@ -65,18 +65,17 @@ namespace War.Navigation
 
             while (searchQueue.TryDequeue(out int index))
             {
-                int2 cell = IndexToCell(index, gridSize);
-
                 if (navMeshMask[index] == 0)
                 {
                     findIndex = index;
-
                     break;
                 }
 
-                foreach (int2 off in s_offsets)
+                int2 cell = IndexToCell(index, gridSize);
+
+                foreach (int2 offset in s_offsets)
                 {
-                    int2 nextCell = cell + off;
+                    int2 nextCell = cell + offset;
                     if (nextCell.x < 0 || nextCell.y < 0 || nextCell.x >= gridSize.x || nextCell.y >= gridSize.y)
                     {
                         continue;
@@ -95,6 +94,21 @@ namespace War.Navigation
             visited.Dispose();
 
             return findIndex;
+        }
+
+        public static void GetNeighborCells(int2 cell, in int2 gridSize, ref NativeList<int2> neighborCells)
+        {
+            foreach (int2 offset in s_offsets)
+            {
+                int2 neighbor = cell + offset;
+
+                // 그리드 범위 체크
+                if (neighbor.x >= 0 && neighbor.x < gridSize.x &&
+                    neighbor.y >= 0 && neighbor.y < gridSize.y)
+                {
+                    neighborCells.Add(neighbor);
+                }
+            }
         }
     }
 }

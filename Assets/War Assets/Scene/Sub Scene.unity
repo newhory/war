@@ -349,9 +349,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7545faf6d6614f2083aeb28ec93ed257, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::War.Navigation.Authoring.NavigationGridAuthoring
-  neighborHashCellSize: 1.2
+  neighborHashCellSize: 1.5
   maxMaxNeighborCount: 12
-  flowFieldCellSize: 1.2
+  flowFieldCellSize: 1.5
   flowFieldMinGridCellCount: 8
   flowFieldWalkableToleranceForDivide: 0.9
   flowFieldValidWalkableRatio: 0.4

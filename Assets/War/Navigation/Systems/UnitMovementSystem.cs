@@ -50,26 +50,14 @@ namespace War.Navigation.Systems
 
                 float2 flowDirection;
 
-                if (CanMoveDirect(position, unitDestination.Value, unitRadius.Value))
+                if (CanMoveDirect(position, unitDestination.Value))
                 {
                     flowDirection = toDestDirection.xz;
                 }
                 else
                 {
-                    int positionFlowId = -1;
-                    for (int i = 0, count = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets.Length; i < count; ++i)
-                    {
-                        if (flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i].AreaBounds.Contains(position.xz))
-                        {
-                            positionFlowId = flowFieldBlobReference.BlobAssetReference.Value.FlowFieldTargets[i].FlowId;
-
-                            break;
-                        }
-                    }
-
                     // 1) Robust Flow 샘플링
-                    if (positionFlowId < 0 || positionFlowId == unitDestination.FlowFieldId ||
-                        !TrySampleDirection(flowFieldBlobReference, unitDestination.FlowFieldId, position, unitRadius.Value, oldVelocityDirection.xz, out flowDirection))
+                    if (!TrySampleDirection(flowFieldBlobReference, unitDestination.FlowFieldId, position, unitRadius.Value, oldVelocityDirection.xz, out flowDirection))
                     {
                         flowDirection = toDestDirection.xz;
                     }
@@ -127,7 +115,7 @@ namespace War.Navigation.Systems
                 }
 
                 // 5) 진행 방향에 장애물 처리
-                velocity.xz = AdjustForObstacle(position, velocity.xz, unitRadius.Value, flowDirection);
+                velocity.xz = AdjustForObstacle(position, velocity.xz, desireVelocity.xz);
 
                 // 6) 속도 클램프 + 감속 + 스무딩
                 float dist = math.length(toDestination);
@@ -149,7 +137,7 @@ namespace War.Navigation.Systems
 
             private int2 WorldToCell(float3 worldPos) => FlowFieldQuery.WorldToCell(worldPos, FlowFieldGridSize, FlowFieldCellSize, MinWorldPositionInGrid);
 
-            private bool CanMoveDirect(float3 startPos, float3 endPos, float unitRadius)
+            private bool CanMoveDirect(float3 startPos, float3 endPos)
             {
                 int2 startCell = WorldToCell(startPos);
                 int2 endCell = WorldToCell(endPos);
@@ -162,33 +150,23 @@ namespace War.Navigation.Systems
                 int err = dx - dy;
 
                 int2 cell = startCell;
-                int radiusCells = math.max(1, (int)math.ceil(unitRadius / FlowFieldCellSize));
 
                 while (true)
                 {
-                    // 반경 내 셀 검사
-                    for (int ry = -radiusCells; ry <= radiusCells; ry++)
-                    {
-                        for (int rx = -radiusCells; rx <= radiusCells; rx++)
-                        {
-                            int nx = cell.x + rx;
-                            int ny = cell.y + ry;
-                            if (nx < 0 || ny < 0 || nx >= FlowFieldGridSize.x || ny >= FlowFieldGridSize.y)
-                            {
-                                return false;
-                            }
-
-                            int nIdx = ny * FlowFieldGridSize.x + nx;
-                            if (NavMeshMask[nIdx] != 0) // 장애물 있음
-                            {
-                                return false;
-                            }
-                        }
-                    }
-
                     if (cell.x == endCell.x && cell.y == endCell.y)
                     {
                         break;
+                    }
+
+                    if (cell.x < 0 || cell.y < 0 || cell.x >= FlowFieldGridSize.x || cell.y >= FlowFieldGridSize.y)
+                    {
+                        return false;
+                    }
+
+                    int index = FlowFieldQuery.CellToIndex(cell, FlowFieldGridSize);
+                    if (NavMeshMask[index] != 0) // 장애물 있음
+                    {
+                        return false;
                     }
 
                     int e2 = 2 * err;
@@ -248,10 +226,10 @@ namespace War.Navigation.Systems
                     float2 d11 = GetDirectionSafe(ref flowFieldTarget.DirectionField, ix + 1, iy + 1);
 
                     // 유효 셀만 가중 평균 (거리 기반)
-                    float w00 = math.lengthsq(d00) > 0f ? 1f : 0f; // 현재 셀은 항상 강하게 반영
-                    float w10 = !IsWallInward(d10, d00) ? fx * (1f - fy) : 0f;
-                    float w01 = !IsWallInward(d01, d00) ? (1f - fx) * fy : 0f;
-                    float w11 = !IsWallInward(d11, d00) ? fx * fy : 0f;
+                    float w00 = math.lengthsq(d00) > 0f ? (1f - fx) * (1f - fy) : 0f;
+                    float w10 = math.lengthsq(d10) > 0f ? fx * (1f - fy) : 0f;
+                    float w01 = math.lengthsq(d01) > 0f ? (1f - fx) * fy : 0f;
+                    float w11 = math.lengthsq(d11) > 0f ? fx * fy : 0f;
 
                     float wSum = w00 + w10 + w01 + w11;
 
@@ -342,16 +320,11 @@ namespace War.Navigation.Systems
                 return math.lengthsq(flow) > 0.0001f;
             }
 
-            // 벽 안쪽 성분 필터링 함수
-            // posDir은 현재 셀 방향
-            // 벽 평행 상태라면, posDir과 반대 성분은 제외
-            private static bool IsWallInward(float2 dir, float2 posDir) => math.dot(dir, posDir) < 0f;
-
             private float2 GetDirectionSafe(ref BlobArray<float2> field, int x, int y)
             {
                 int index = FlowFieldQuery.CellToIndex(new int2(x, y), FlowFieldGridSize);
 
-                return NavMeshMask[index] != 0 ? float2.zero : field[index];
+                return NavMeshMask[index] == 0 ? field[index] : float2.zero;
             }
 
             private static float3 BlendFlowWithDetour(float2 flowDirection, float3 detourDirection, float severity, float3 oldVelocityDirection)
@@ -372,78 +345,50 @@ namespace War.Navigation.Systems
                 return blended;
             }
 
-            private float2 AdjustForObstacle(float3 worldPos, float2 dir, float unitRadius, float2 flowDirection)
+            private float2 AdjustForObstacle(float3 worldPos, float2 velocity, float2 desireVelocity)
             {
-                if (math.lengthsq(dir) < 0.0001f)
+                if (math.lengthsq(velocity) < 0.0001f || IsDirectionFree(worldPos, velocity))
                 {
-                    return dir;
+                    return velocity;
                 }
 
-                float stepSize = math.max(FlowFieldCellSize, unitRadius);
-                if (IsDirectionFree(worldPos, dir, stepSize))
-                {
-                    return dir;
-                }
-
-                float speed = math.length(dir);
-                float2 candidateX = math.normalizesafe(new float2(dir.x, 0), float2.zero);
-                float2 candidateY = math.normalizesafe(new float2(0, dir.y), float2.zero);
+                float2 candidateX = new(velocity.x, 0);
+                float2 candidateY = new(0, velocity.y);
 
                 // 후보 방향을 worldPos 기준으로 검사
-                bool xFree = IsDirectionFree(worldPos, candidateX, stepSize);
-                bool yFree = IsDirectionFree(worldPos, candidateY, stepSize);
+                bool xFree = IsDirectionFree(worldPos, candidateX);
+                bool yFree = IsDirectionFree(worldPos, candidateY);
 
                 if (xFree && yFree)
                 {
                     // 둘 다 가능 → 원래 dir과 더 가까운 쪽 선택
-                    return (math.abs(dir.x) > math.abs(dir.y) ? candidateX : candidateY) * speed;
+                    return (math.abs(velocity.x) > math.abs(velocity.y) ? candidateX : candidateY);
                 }
 
                 if (xFree)
                 {
-                    return candidateX * speed;
+                    return candidateX;
                 }
 
                 if (yFree)
                 {
-                    return candidateY * speed;
-                }
-
-                candidateX = -candidateX;
-                candidateY = -candidateY;
-
-                xFree = IsDirectionFree(worldPos, candidateX, stepSize);
-                yFree = IsDirectionFree(worldPos, candidateY, stepSize);
-
-                if (xFree && yFree)
-                {
-                    // 둘 다 가능 → 원래 dir과 더 가까운 쪽 선택
-                    return (math.abs(dir.x) > math.abs(dir.y) ? candidateX : candidateY) * speed;
-                }
-
-                if (xFree)
-                {
-                    return candidateX * speed;
-                }
-
-                if (yFree)
-                {
-                    return candidateY * speed;
+                    return candidateY;
                 }
 
                 // 둘 다 막힘 → FlowField 방향으로 fallback
-                return flowDirection * speed;
+                return desireVelocity;
             }
 
             // 보조 함수: 특정 방향으로 unitRadius만큼 이동했을 때 뚫려 있는지 검사
-            private bool IsDirectionFree(float3 worldPos, float2 dir, float stepSize)
+            private bool IsDirectionFree(float3 worldPos, float2 velocity)
             {
-                if (math.lengthsq(dir) < 0.0001f)
+                if (math.lengthsq(velocity) < 0.0001f)
                 {
                     return false;
                 }
 
-                float3 step = new float3(dir.x, 0, dir.y) * stepSize;
+                float3 direction = math.normalize(new float3(velocity.x, 0, velocity.y));
+                float3 step = direction * FlowFieldCellSize;
                 int2 nextCell = FlowFieldQuery.WorldToCell(worldPos + step, FlowFieldGridSize, FlowFieldCellSize, MinWorldPositionInGrid);
                 if (nextCell.x < 0 || nextCell.x >= FlowFieldGridSize.x || nextCell.y < 0 || nextCell.y >= FlowFieldGridSize.y)
                 {
@@ -473,7 +418,7 @@ namespace War.Navigation.Systems
                 new MoveJob
                     {
                         DeltaTime = SystemAPI.Time.DeltaTime,
-                        PredictionTimeHorizon = 1.2f,
+                        PredictionTimeHorizon = 0.8f,
 
                         MinWorldPositionInGrid = FlowFieldProvider.MinWorldPositionInGrid,
                         FlowFieldGridSize = FlowFieldProvider.GridSize,

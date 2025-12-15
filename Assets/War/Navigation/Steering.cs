@@ -79,11 +79,7 @@ namespace War.Navigation
             }
             else
             {
-                // 큰 차이가 없으면 기존 선호 유지
-                if (math.abs(sidePref) <= 0)
-                {
-                    sidePref = 0;
-                }
+                sidePref = 0;
             }
 
             // --- 4) 선호 방향을 약간 반영해 흔들림 완화 ---

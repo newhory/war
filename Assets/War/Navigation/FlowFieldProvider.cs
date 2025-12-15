@@ -48,13 +48,6 @@ namespace War.Navigation
             public readonly float WalkableRatio;
 
 
-            public float3 Min => Bounds.Min;
-            public float3 Max => Bounds.Max;
-
-            public float3 Center => Bounds.Center;
-            public float3 Size => Bounds.Size;
-
-
             public BoundForQuadtree(SimpleBounds bounds, float walkableRatio)
                 => (Bounds, WalkableRatio) = (bounds, walkableRatio);
 
@@ -386,9 +379,9 @@ namespace War.Navigation
                     float bestDist = float.PositiveInfinity;
 
                     // 주변 1~2셀 탐색
-                    for (int dy = -2; dy <= 2; dy++)
+                    for (int dy = -4; dy <= 4; dy++)
                     {
-                        for (int dx = -2; dx <= 2; dx++)
+                        for (int dx = -4; dx <= 4; dx++)
                         {
                             int nx = x + dx;
                             int ny = y + dy;
@@ -624,7 +617,7 @@ namespace War.Navigation
             new ExpandBoundsJob
                 {
                     Bounds = results.AsArray(),
-
+            
                     NavMeshGridSize = GridSize,
                     NavMeshCellSize = CellSize,
                     NavMeshMinWorldPosition = MinWorldPositionInGrid,
