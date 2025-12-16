@@ -7,8 +7,7 @@ using UnityEngine;
 
 namespace War.Dots.Component.ComponentSystem
 {
-    [UpdateAfter(typeof(Group.LastUpdateGroup))]
-    [UpdateBefore(typeof(Group.ViewSystemGroup))]
+    [UpdateInGroup(typeof(PresentationSystemGroup))]
     [RequireMatchingQueriesForUpdate]
     public partial struct FieldCameraSystem : ISystem, ISystemStartStop
     {
@@ -51,7 +50,7 @@ namespace War.Dots.Component.ComponentSystem
             float3 sumPosition = float3.zero;
             int count = 0;
 
-            foreach (RefRO<LocalTransform> localTransform in SystemAPI.Query<RefRO<LocalTransform>>().WithAll<Alive, NavMeshAgentData>())
+            foreach ((RefRO<LocalTransform> localTransform, Entity entity) in SystemAPI.Query<RefRO<LocalTransform>>().WithAll<Alive, Soldier, NavMeshAgentData>().WithEntityAccess())
             {
                 sumPosition += localTransform.ValueRO.Position;
                 count++;
@@ -66,7 +65,7 @@ namespace War.Dots.Component.ComponentSystem
 
             float maxRadius = float.MinValue;
 
-            foreach ((RefRO<LocalTransform> localTransform, RefRO<NavMeshAgentData> navMeshAgentData) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<NavMeshAgentData>>().WithAll<Alive>())
+            foreach ((RefRO<LocalTransform> localTransform, RefRO<NavMeshAgentData> navMeshAgentData) in SystemAPI.Query<RefRO<LocalTransform>, RefRO<NavMeshAgentData>>().WithAll<Alive, Soldier>())
             {
                 float distance = math.distance(localTransform.ValueRO.Position, centroid) + navMeshAgentData.ValueRO.Radius;
                 if (distance > maxRadius)
