@@ -196,6 +196,15 @@ namespace War
         private static ObjectPool<TroopLine> troopLinePool;
 
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void InitializeOnLoad()
+        {
+            lineRendererPool = null;
+            splineContainerPool = null;
+            troopLinePool = null;
+        }
+
+
         private EntityManager _entityManager;
 
         private Dictionary<Entity, ActiveTroopVisual> _activeSelectedTroops;

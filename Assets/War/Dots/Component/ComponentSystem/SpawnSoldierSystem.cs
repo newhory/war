@@ -4,7 +4,9 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 using ZLinq;
+using Random = Unity.Mathematics.Random;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -235,6 +237,14 @@ namespace War.Dots.Component.ComponentSystem
 
         private static Entity s_spawnSoldierDataBufferEntity;
         private static int s_troopId;
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void InitializeOnLoad()
+        {
+            s_spawnSoldierDataBufferEntity = Entity.Null;
+            s_troopId = 0;
+        }
 
 
         public static void SpawnSoldier(EntityManager entityManager, SpawnSoldierData spawn) => GetSpawnSoldierDataBuffer(entityManager).Add(spawn);

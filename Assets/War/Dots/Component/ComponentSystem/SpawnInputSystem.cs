@@ -1,6 +1,8 @@
 ﻿using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Physics;
+using UnityEngine;
+using RaycastHit = Unity.Physics.RaycastHit;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -31,6 +33,15 @@ namespace War.Dots.Component.ComponentSystem
 
         private static bool s_setCurrentSpawnSoldierData;
         private static SpawnSoldierData s_currentSpawnSoldierData;
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void InitializeOnLoad()
+        {
+            s_pointInput  = Entity.Null;
+            s_setCurrentSpawnSoldierData = false;
+            s_currentSpawnSoldierData = default;
+        }
 
 
         public static void SetCurrentSpawnSoldierData(SpawnSoldierData spawnSoldierData)

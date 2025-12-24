@@ -15,6 +15,14 @@ namespace War.Dots.Component.ComponentSystem
     {
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_blueTeamSoldierViewPool;
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_redTeamSoldierViewPool;
+        
+        
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void Initialize()
+        {
+            s_blueTeamSoldierViewPool = null;
+            s_redTeamSoldierViewPool = null;
+        }
 
         private readonly List<(Entity entity, PooledGameObject soldierViewComponent)> _pooledGameObjectBuffer = new();
 

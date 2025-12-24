@@ -26,10 +26,7 @@ namespace War.Navigation.Systems
             [ReadOnly] public int2 FlowFieldGridSize;
             [ReadOnly] public float FlowFieldCellSize;
 
-            [ReadOnly] public NativeParallelMultiHashMap<int, NeighborRecord>.ReadOnly Hash;
-            [ReadOnly] public float NeighborCellSize;
-            [ReadOnly] public int MaxNeighborCount;
-
+            [ReadOnly] public NeighborSearchContext NeighborSearchContext;
             [ReadOnly] public NativeArray<byte>.ReadOnly NavMeshMask;
 
 
@@ -67,8 +64,8 @@ namespace War.Navigation.Systems
                 float3 velocityDirection = math.normalizesafe(desireVelocity);
 
                 // 2) 이웃 수집
-                NativeArray<NeighborRecord> neighborRecordBuffer = new(MaxNeighborCount, Allocator.Temp);
-                int neighborCount = NeighborQuery.Collect(position, velocityDirection, MaxNeighborCount, NeighborCellSize, Hash, ref neighborRecordBuffer);
+                NativeArray<NeighborRecord> neighborRecordBuffer = new(NeighborSearchContext.MaxCount, Allocator.Temp);
+                int neighborCount = NeighborQuery.Collect(position, velocityDirection, NeighborSearchContext.MaxCount, NeighborSearchContext.CellSize, NeighborSearchContext.Hash, ref neighborRecordBuffer);
 
                 // 3) 회피 (거리 + 예측 기반)
                 float3 velocity = Steering.SteerAvoid(
@@ -93,7 +90,7 @@ namespace War.Navigation.Systems
                 velocityDirection = math.normalizesafe(velocity);
 
                 // 4) 앞 차단 평가 (blockedCount 반영)
-                float severity = Steering.EvaluateBlockAhead(position, velocityDirection, Hash, NeighborCellSize, unitRadius.Value, out bool isLeftBetter);
+                float severity = Steering.EvaluateBlockAhead(position, velocityDirection, NeighborSearchContext.Hash, NeighborSearchContext.CellSize, unitRadius.Value, out bool isLeftBetter);
                 blockAhead.Severity = severity;
 
                 if (severity > 0.6f)
@@ -424,10 +421,7 @@ namespace War.Navigation.Systems
                         FlowFieldGridSize = FlowFieldProvider.GridSize,
                         FlowFieldCellSize = FlowFieldProvider.CellSize,
 
-                        Hash = NeighborService.Hash,
-                        NeighborCellSize = NeighborService.CellSize,
-                        MaxNeighborCount = NeighborService.MaxNeighborCount,
-
+                        NeighborSearchContext = NeighborService.Context,
                         NavMeshMask = FlowFieldProvider.NavMeshMask
                     }
                     .ScheduleParallel(dependency);

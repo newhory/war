@@ -13,6 +13,16 @@ namespace War.Dots.Component.ComponentSystem
     {
         private static ObjectPool<GameObject> s_arrowPool;
         private static List<(Entity entity, PooledGameObject soldierViewComponent)> s_pooledGameObjectBuffer;
+        
+        
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void Initialize()
+        {
+            s_arrowPool?.Dispose();
+            s_arrowPool = null;
+            
+            s_pooledGameObjectBuffer = null;
+        }
 
 
         public static void ResetPool()
@@ -44,7 +54,7 @@ namespace War.Dots.Component.ComponentSystem
         }
 
 
-        public void OnCreate(ref SystemState state) => s_pooledGameObjectBuffer = new List<(Entity entity, PooledGameObject soldierViewComponent)>();
+        public void OnCreate(ref SystemState state) => s_pooledGameObjectBuffer ??= new List<(Entity entity, PooledGameObject soldierViewComponent)>();
 
         public void OnDestroy(ref SystemState state) => DisposePool();
 

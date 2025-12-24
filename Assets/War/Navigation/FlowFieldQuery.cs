@@ -8,7 +8,7 @@ namespace War.Navigation
     [BurstCompile]
     public static class FlowFieldQuery
     {
-        private static readonly int2[] s_offsets = { new(-1, 0), new(1, 0), new(0, -1), new(0, 1), new(-1, 1), new(1, 1), new(-1, -1), new(1, -1) };
+        private static readonly int2[] s_offsets =  { new(-1, 0), new(1, 0), new(0, -1), new(0, 1), new(-1, 1), new(1, 1), new(-1, -1), new(1, -1) };
 
 
         public static int WorldToIndex(in float3 worldPos, in int2 gridSize, float cellSize, in float3 minWorldPositionInGrid) =>

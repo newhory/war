@@ -1,8 +1,9 @@
 ﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Physics;
 using Unity.Transforms;
+using UnityEngine;
+using Ray = Unity.Physics.Ray;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -12,14 +13,23 @@ namespace War.Dots.Component.ComponentSystem
     {
         private static bool s_isStartBattle;
         private static bool s_isResetBattle;
+        
+        private static Entity s_pointInput;
+        
 
         public static int SoldierCount { get; private set; }
 
 
         public static void StartBattle() => s_isStartBattle = true;
         public static void ResetBattle() => s_isResetBattle = true;
+        
 
-        private static Entity s_pointInput;
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void InitializeOnLoad()
+        {
+            s_isStartBattle = s_isResetBattle  = false;
+            s_pointInput  = Entity.Null;
+        }
 
 
         public static void OnPointerPressStarted(EntityManager entityManager, float2 point, Ray ray)

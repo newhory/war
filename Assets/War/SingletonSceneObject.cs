@@ -7,16 +7,18 @@ namespace War
     public abstract class SingletonSceneObject<TComponent> : MonoBehaviour
         where TComponent : SingletonSceneObject<TComponent>
     {
-        private static TComponent _instance;
+#pragma warning disable UDR0001
+        private static TComponent instance;
+#pragma warning restore UDR0001
 
 
         public static TComponent Instance
         {
             get
             {
-                if (_instance is not null)
+                if (instance is not null)
                 {
-                    return _instance;
+                    return instance;
                 }
 
                 try
@@ -33,19 +35,19 @@ namespace War
                         Debug.LogError($"[SceneObject<{typeof(TComponent).Name}>] Something went really wrong - there should never be more than 1 singleton! Reopening the scene might fix it.");
                     }
 
-                    _instance = objects[0];
-                    _instance.Init();
+                    instance = objects[0];
+                    instance.Init();
                 }
                 catch (Exception e)
                 {
                     Debug.LogException(e);
                 }
 
-                return _instance;
+                return instance;
             }
         }
 
-        public static bool IsValid => _instance;
+        public static bool IsValid => instance;
 
 
         private void Awake()
@@ -55,16 +57,16 @@ namespace War
                 return;
             }
 
-            _instance = this as TComponent;
-            _instance?.Init();
+            instance = this as TComponent;
+            instance?.Init();
         }
 
         private void OnDestroy()
         {
-            if (_instance)
+            if (instance)
             {
-                _instance.Release();
-                _instance = null;
+                instance.Release();
+                instance = null;
             }
         }
 

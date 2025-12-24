@@ -7,11 +7,12 @@ namespace War.Dots.Component.ComponentSystem
     [UpdateInGroup(typeof(Group.ViewSystemGroup))]
     public partial class SoldierAnimationSystem : SystemBase
     {
+#pragma warning disable UDR0001
         private static int s_speed;
         private static int s_attack;
         private static int s_hit;
         private static int s_dead;
-
+#pragma warning restore UDR0001
 
         protected override void OnCreate()
         {

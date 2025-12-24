@@ -503,7 +503,9 @@ namespace War.Navigation
         }
 
 
+#pragma warning disable UDR0002
         private static NativeArray<byte> s_navMeshMask;
+#pragma warning restore UDR0002
 
 
         public static float CellSize { get; private set; }
@@ -512,7 +514,15 @@ namespace War.Navigation
 
         public static BlobAssetReference<FlowFieldBlobRoot> FlowFieldFlowBlobAssetReference { get; private set; }
         public static NativeArray<byte>.ReadOnly NavMeshMask => s_navMeshMask.AsReadOnly();
+        
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void Initialize()
+        {
+            CellSize = 0f;
+            GridSize = int2.zero;
+            MinWorldPositionInGrid = float3.zero;
+        }
 
         public static void Init(in NavigationGrid navigationGrid)
         {
@@ -531,10 +541,7 @@ namespace War.Navigation
             {
                 Dispose();
 
-                int count = newGridSize.x * newGridSize.y;
-
-
-                s_navMeshMask = new NativeArray<byte>(count, Allocator.Persistent);
+                s_navMeshMask = new NativeArray<byte>(newGridSize.x * newGridSize.y, Allocator.Domain);
 
                 GridSize = newGridSize;
             }

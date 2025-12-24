@@ -3,6 +3,9 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Physics;
+using UnityEngine;
+using CapsuleCollider = Unity.Physics.CapsuleCollider;
+using Collider = Unity.Physics.Collider;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -118,6 +121,10 @@ namespace War.Dots.Component.ComponentSystem
 
 
         private static int s_soldierId;
+
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void InitializeOnLoad() => s_soldierId = 0;
 
 
         private EntityQuery _troopQuery;

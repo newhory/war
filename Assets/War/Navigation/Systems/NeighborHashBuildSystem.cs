@@ -102,18 +102,29 @@ namespace War.Navigation.Systems
                     .ScheduleParallel(dependency);
 
             state.Dependency = dependency;
+            
+            NeighborService.Context = new NeighborSearchContext(_hash.AsReadOnly(), cellSize, navigationGrid.MaxMaxNeighborCount);
+        }
+    }
+    
+    public readonly struct NeighborSearchContext
+    {
+        public readonly NativeParallelMultiHashMap<int, NeighborRecord>.ReadOnly Hash;
+        public readonly float CellSize;
+        public readonly int MaxCount;
 
-            NeighborService.Hash = _hash.AsReadOnly();
-            NeighborService.CellSize = cellSize;
-            NeighborService.MaxNeighborCount = navigationGrid.MaxMaxNeighborCount;
+        public NeighborSearchContext(NativeParallelMultiHashMap<int, NeighborRecord>.ReadOnly hash, float cellSize, int maxCount)
+        {
+            Hash = hash;
+            CellSize = cellSize;
+            MaxCount = maxCount;
         }
     }
 
     public static class NeighborService
     {
-        public static NativeParallelMultiHashMap<int, NeighborRecord>.ReadOnly Hash;
-
-        public static float CellSize;
-        public static int MaxNeighborCount;
+#pragma warning disable UDR0001
+        public static NeighborSearchContext Context;
+#pragma warning restore UDR0001
     }
 }
