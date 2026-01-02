@@ -1,11 +1,10 @@
 ﻿using System;
-using UnityEngine;
-using UnityEditor;
-using UnityEngine.UIElements;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using UnityEditor;
 using UnityEditor.UIElements;
+using UnityEngine;
+using UnityEngine.UIElements;
 using ZLinq;
 using Object = UnityEngine.Object;
 
@@ -17,6 +16,7 @@ namespace War.VAT.Editor
 #pragma warning disable UDR0001
         private static int s_baseTex;
         private static int s_vatTex;
+        private static int s_normalTex;
         private static int s_min;
         private static int s_max;
 #pragma warning restore UDR0001
@@ -34,29 +34,31 @@ namespace War.VAT.Editor
 
 
         [Serializable]
-        private class ClipFPSData
+        private class AnimationClipData
         {
-            public string keyword;
             public AnimationClip clip;
+
+            public string keyword;
             public int startFrame;
             public int endFrame;
             public int samplingFPS;
         }
 
-        private class SMRData
+        private class SkinnedMeshRendererData
         {
-            public SkinnedMeshRenderer smr;
-            public Vector3 min;
-            public Vector3 max;
-            public string vatTexturePath;
-            public string vatMaterialPath;
+            public SkinnedMeshRenderer Renderer;
+            public Vector3 Min;
+            public Vector3 Max;
+            public string VatTexturePath;
+            public string NormalTexturePath;
+            public string VatMaterialPath;
         }
 
 
         private Shader vatShaderGraph;
         private Animator animator;
-        private List<ClipFPSData> clipFPSList = new List<ClipFPSData>();
-        private List<SMRData> smrList = new List<SMRData>();
+        private readonly List<AnimationClipData> animationClipDataList = new();
+        private readonly List<SkinnedMeshRendererData> skinnedMeshRendererDataList = new();
 
         private int maxTexWidth;
         private int maxTexHeight;
@@ -65,11 +67,11 @@ namespace War.VAT.Editor
         private int vatTexHeight;
 
 
-        [MenuItem("Tools/VAT Baker (Optimized UI Toolkit)")]
+        [MenuItem("Tools/Vertex Animation Texture Baker")]
         public static void ShowWindow()
         {
-            var wnd = GetWindow<VertexAnimationTextureBaker>();
-            wnd.titleContent = new GUIContent("VAT Baker (Optimized)");
+            VertexAnimationTextureBaker wnd = GetWindow<VertexAnimationTextureBaker>();
+            wnd.titleContent = new GUIContent("Vertex Animation Texture Baker");
             wnd.minSize = new Vector2(600, 500);
         }
 
@@ -77,6 +79,7 @@ namespace War.VAT.Editor
         {
             s_baseTex = Shader.PropertyToID("_BaseTex");
             s_vatTex = Shader.PropertyToID("_VATTex");
+            s_normalTex = Shader.PropertyToID("_NormalTex");
             s_min = Shader.PropertyToID("_Min");
             s_max = Shader.PropertyToID("_Max");
 
@@ -85,7 +88,7 @@ namespace War.VAT.Editor
 
         public void CreateGUI()
         {
-            var root = rootVisualElement;
+            VisualElement root = rootVisualElement;
 
             vatShaderGraphField = new ObjectField("Shader Graph")
             {
@@ -106,8 +109,8 @@ namespace War.VAT.Editor
                 animator = evt.newValue as Animator;
                 if (animator != null)
                 {
-                    LoadClips(animator);
-                    LoadSMRs(animator);
+                    LoadAnimationClips(animator);
+                    LoadSkinnedMeshRenderers(animator);
                     clipListView.Rebuild();
                     smrListView.Rebuild();
                 }
@@ -126,92 +129,131 @@ namespace War.VAT.Editor
             });
             root.Add(maxTextureSizeField);
 
-            // AnimationClip 리스트 (읽기 전용)
             clipListView = new ListView
             {
                 showFoldoutHeader = true,
                 headerTitle = "Animation Clips",
-                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight
-            };
-            clipListView.makeItem = () =>
-            {
-                var container = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 4 } };
-                var clipField = new ObjectField { objectType = typeof(AnimationClip), allowSceneObjects = true };
-                clipField.style.width = 250;
-                clipField.SetEnabled(false);
-
-                var nameField = new TextField();
-                nameField.style.width = 120;
-                nameField.textEdition.placeholder = "Enter Clip Name";
-                var fpsLabel = new Label("FPS:");
-                fpsLabel.style.width = 40;
-                var fpsField = new IntegerField();
-                fpsField.style.width = 60;
-
-                container.Add(clipField);
-                container.Add(nameField);
-                container.Add(fpsLabel);
-                container.Add(fpsField);
-                return container;
-            };
-
-            clipListView.bindItem = (element, i) =>
-            {
-                var data = clipFPSList[i];
-                var nameField = element.Q<TextField>();
-                var clipField = element.Q<ObjectField>();
-                var fpsField = element.Q<IntegerField>();
-
-                nameField.value = data.keyword;
-                clipField.value = data.clip;
-                fpsField.value = data.samplingFPS;
-                fpsField.MarkDirtyRepaint();
-
-                nameField.RegisterValueChangedCallback(evt =>
+                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+                makeItem = () =>
                 {
-                    data.keyword = evt.newValue;
-                    clipFPSList[i] = data;
-                });
+                    VisualElement container = new() { style = { flexDirection = FlexDirection.Row, marginBottom = 4 } };
+                    ObjectField clipField = new()
+                    {
+                        objectType = typeof(AnimationClip), allowSceneObjects = true,
+                        style =
+                        {
+                            width = 250
+                        }
+                    };
+                    clipField.SetEnabled(false);
 
-                fpsField.RegisterValueChangedCallback(evt =>
+                    TextField nameField = new()
+                    {
+                        style =
+                        {
+                            width = 120
+                        },
+                        textEdition =
+                        {
+                            placeholder = "Enter Clip Name"
+                        }
+                    };
+                    Label fpsLabel = new("FPS:")
+                    {
+                        style =
+                        {
+                            width = 40
+                        }
+                    };
+                    IntegerField fpsField = new()
+                    {
+                        style =
+                        {
+                            width = 60
+                        }
+                    };
+
+                    container.Add(clipField);
+                    container.Add(nameField);
+                    container.Add(fpsLabel);
+                    container.Add(fpsField);
+
+                    return container;
+                },
+                bindItem = (element, i) =>
                 {
-                    data.samplingFPS = Mathf.Max(1, evt.newValue);
-                    clipFPSList[i] = data;
-                });
+                    AnimationClipData data = animationClipDataList[i];
+                    TextField nameField = element.Q<TextField>();
+                    ObjectField clipField = element.Q<ObjectField>();
+                    IntegerField fpsField = element.Q<IntegerField>();
+
+                    nameField.value = data.keyword;
+                    clipField.value = data.clip;
+                    fpsField.value = data.samplingFPS;
+                    fpsField.MarkDirtyRepaint();
+
+                    nameField.RegisterValueChangedCallback(evt =>
+                    {
+                        data.keyword = evt.newValue;
+                        animationClipDataList[i] = data;
+                    });
+
+                    fpsField.RegisterValueChangedCallback(evt =>
+                    {
+                        data.samplingFPS = Mathf.Max(1, evt.newValue);
+                        animationClipDataList[i] = data;
+                    });
+                }
             };
+
             root.Add(clipListView);
 
-            // SkinnedMeshRenderer 리스트 (읽기 전용)
             smrListView = new ListView
             {
                 showFoldoutHeader = true,
                 headerTitle = "Skinned Meshes (ReadOnly)",
-                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight
-            };
-            smrListView.makeItem = () =>
-            {
-                var container = new VisualElement { style = { flexDirection = FlexDirection.Row, marginBottom = 4 } };
-                var smrField = new ObjectField { objectType = typeof(SkinnedMeshRenderer), allowSceneObjects = true };
-                smrField.style.width = 300;
-                smrField.SetEnabled(false);
-                container.Add(smrField);
-                return container;
-            };
-            smrListView.bindItem = (element, i) =>
-            {
-                var data = smrList[i];
-                var smrField = element.Q<ObjectField>();
-                smrField.value = data.smr;
+                virtualizationMethod = CollectionVirtualizationMethod.DynamicHeight,
+                makeItem = () =>
+                {
+                    VisualElement container = new() { style = { flexDirection = FlexDirection.Row, marginBottom = 4 } };
+                    ObjectField smrField = new()
+                    {
+                        objectType = typeof(SkinnedMeshRenderer), allowSceneObjects = true,
+                        style =
+                        {
+                            width = 300
+                        }
+                    };
+                    smrField.SetEnabled(false);
+                    container.Add(smrField);
+
+                    return container;
+                },
+                bindItem = (element, i) =>
+                {
+                    SkinnedMeshRendererData data = skinnedMeshRendererDataList[i];
+                    ObjectField smrField = element.Q<ObjectField>();
+                    smrField.value = data.Renderer;
+                }
             };
             root.Add(smrListView);
 
-            // 저장 경로 입력 필드 + 버튼
-            var pathRow = new VisualElement { style = { flexDirection = FlexDirection.Row, marginTop = 6 } };
+            VisualElement pathRow = new()
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    marginTop = 6
+                }
+            };
             savePathField = new TextField("Save Path")
             {
-                value = "Assets/VATTexture_MultiSMR.exr"
+                value = "Assets/VATTexture_MultiSMR.exr",
+                style =
+                {
+                    flexGrow = 1
+                }
             };
-            savePathField.style.flexGrow = 1;
 
             pathSelectButton = new Button(() =>
             {
@@ -219,7 +261,10 @@ namespace War.VAT.Editor
                 if (!string.IsNullOrEmpty(path))
                 {
                     if (path.StartsWith(Application.dataPath))
+                    {
                         path = "Assets" + path.Substring(Application.dataPath.Length);
+                    }
+
                     savePathField.value = path;
                 }
             })
@@ -232,7 +277,7 @@ namespace War.VAT.Editor
             root.Add(pathRow);
 
             // 권장 FPS 계산 버튼
-            recommendButton = new Button(() => { RecommendFPS(); })
+            recommendButton = new Button(SetRecommendFPS)
             {
                 text = "권장 FPS 계산"
             };
@@ -257,41 +302,42 @@ namespace War.VAT.Editor
             root.Add(resultLabel);
         }
 
-        void LoadClips(Animator anim)
+        private void LoadAnimationClips(Animator anim)
         {
-            clipFPSList.Clear();
-            foreach (var clip in anim.runtimeAnimatorController.animationClips)
+            animationClipDataList.Clear();
+            foreach (AnimationClip clip in anim.runtimeAnimatorController.animationClips)
             {
-                clipFPSList.Add(new ClipFPSData
+                animationClipDataList.Add(new AnimationClipData
                 {
+                    keyword = clip.name,
                     clip = clip,
                     samplingFPS = 30
                 });
             }
 
-            clipListView.itemsSource = clipFPSList;
+            clipListView.itemsSource = animationClipDataList;
             clipListView.Rebuild();
         }
 
-        void LoadSMRs(Animator anim)
+        private void LoadSkinnedMeshRenderers(Animator anim)
         {
-            smrList.Clear();
-            foreach (var smr in anim.GetComponentsInChildren<SkinnedMeshRenderer>())
+            skinnedMeshRendererDataList.Clear();
+            foreach (SkinnedMeshRenderer meshRenderer in anim.GetComponentsInChildren<SkinnedMeshRenderer>())
             {
-                smrList.Add(new SMRData { smr = smr });
+                skinnedMeshRendererDataList.Add(new SkinnedMeshRendererData { Renderer = meshRenderer });
             }
 
-            smrListView.itemsSource = smrList;
+            smrListView.itemsSource = skinnedMeshRendererDataList;
             smrListView.Rebuild();
         }
 
-        private void RecommendFPS()
+        private void SetRecommendFPS()
         {
             int maxVertexCount =
-                smrList
+                skinnedMeshRendererDataList
                     .AsValueEnumerable()
-                    .Where(data => data.smr)
-                    .Aggregate(0, (current, data) => Mathf.Max(current, data.smr.sharedMesh.vertexCount));
+                    .Where(data => data.Renderer)
+                    .Aggregate(0, (current, data) => Mathf.Max(current, data.Renderer.sharedMesh.vertexCount));
 
             int texWidth = NextPowerOfTwo(maxVertexCount);
             if (texWidth > maxTexWidth)
@@ -302,7 +348,7 @@ namespace War.VAT.Editor
             }
 
             int totalFrames =
-                clipFPSList
+                animationClipDataList
                     .AsValueEnumerable()
                     .Where(data => data.clip)
                     .Sum(data => Mathf.CeilToInt(data.clip.length * data.samplingFPS));
@@ -311,9 +357,9 @@ namespace War.VAT.Editor
             if (texHeight > maxTexHeight)
             {
                 float scaleFactor = (float)maxTexHeight / texHeight;
-                for (int i = 0; i < clipFPSList.Count; i++)
+                for (int i = 0; i < animationClipDataList.Count; i++)
                 {
-                    clipFPSList[i].samplingFPS = Mathf.Max(1, Mathf.FloorToInt(clipFPSList[i].samplingFPS * scaleFactor));
+                    animationClipDataList[i].samplingFPS = Mathf.Max(1, Mathf.FloorToInt(animationClipDataList[i].samplingFPS * scaleFactor));
                 }
 
                 clipListView.Rebuild();
@@ -327,37 +373,43 @@ namespace War.VAT.Editor
 
         private void Bake(string savePath)
         {
-            if (clipFPSList.Count == 0 || smrList.Count == 0)
+            if (animationClipDataList.Count == 0 || skinnedMeshRendererDataList.Count == 0)
             {
                 resultLabel.text = "클립과 SkinnedMeshRenderer가 필요합니다.";
                 return;
             }
 
+            animator.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+            animator.transform.localScale = Vector3.one;
+
             int totalFrameCount = CalculateClipFrames();
 
             Mesh bakedMesh = new();
 
-            foreach (SMRData smrData in smrList)
+            foreach (SkinnedMeshRendererData smrData in skinnedMeshRendererDataList)
             {
-                smrData.min = Vector3.positiveInfinity;
-                smrData.max = Vector3.negativeInfinity;
+                smrData.Renderer.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
+                smrData.Renderer.transform.localScale = Vector3.one;
 
-                foreach (ClipFPSData clipData in clipFPSList)
+                smrData.Min = Vector3.positiveInfinity;
+                smrData.Max = Vector3.negativeInfinity;
+
+                foreach (AnimationClipData clipData in animationClipDataList)
                 {
-                    CalculateGlobalBounds(bakedMesh, smrData.smr, clipData.clip, clipData.endFrame - clipData.startFrame, out Vector3 min, out Vector3 max);
+                    CalculateGlobalBounds(bakedMesh, smrData.Renderer, clipData.clip, clipData.endFrame - clipData.startFrame, out Vector3 min, out Vector3 max);
 
-                    smrData.min = Vector3.Min(min, smrData.min);
-                    smrData.max = Vector3.Max(max, smrData.max);
+                    smrData.Min = Vector3.Min(min, smrData.Min);
+                    smrData.Max = Vector3.Max(max, smrData.Max);
                 }
 
-                smrData.vatTexturePath = BakeTexture(savePath, bakedMesh, smrData.smr, totalFrameCount, smrData.min, smrData.max);
+                BakeTexture(savePath, bakedMesh, smrData.Renderer, totalFrameCount, smrData.Min, smrData.Max, out smrData.VatTexturePath, out smrData.NormalTexturePath);
             }
 
             AssetDatabase.Refresh();
 
-            foreach (SMRData smrData in smrList)
+            foreach (SkinnedMeshRendererData smrData in skinnedMeshRendererDataList)
             {
-                smrData.vatMaterialPath = CreateMaterial(savePath, smrData.vatTexturePath, smrData.smr, smrData.min, smrData.max);
+                smrData.VatMaterialPath = CreateMaterial(savePath, smrData.VatTexturePath, smrData.NormalTexturePath, smrData.Renderer, smrData.Min, smrData.Max);
             }
 
             AssetDatabase.Refresh();
@@ -365,51 +417,6 @@ namespace War.VAT.Editor
             CreateVatDataScriptableObject(savePath);
 
             AssetDatabase.Refresh();
-
-            /*
-        #region debug
-
-            foreach (SMRData smrData in smrList)
-            {
-                var loadedVatTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(smrData.vatTexturePath);
-                var smr = smrData.smr;
-                var min = smrData.min;
-                var max = smrData.max;
-
-                foreach (ClipFPSData clipData in clipFPSList)
-                {
-                    int frameCount = clipData.endFrame - clipData.startFrame;
-
-                    for (int currentFrame = 0; currentFrame <= frameCount; currentFrame++)
-                    {
-                        int y = clipData.startFrame + currentFrame;
-
-                        Color[] colors = loadedVatTexture.GetPixels(0, y, smr.sharedMesh.vertexCount, 1, 0);
-
-                        Vector3[] restored =
-                            colors
-                                .AsValueEnumerable()
-                                .Select(color =>
-                                    new Vector3(
-                                        Mathf.Lerp(min.x, max.x, color.r),
-                                        Mathf.Lerp(min.y, max.y, color.g),
-                                        Mathf.Lerp(min.z, max.z, color.b)))
-                                .ToArray();
-
-                        Mesh debugMesh = new Mesh();
-                        smr.BakeMesh(debugMesh);
-                        debugMesh.vertices = restored;
-
-                        GameObject go = new($"{smr.name}_{clipData.keyword}_{currentFrame}", typeof(MeshFilter), typeof(MeshRenderer));
-
-                        go.GetComponent<MeshFilter>().mesh = debugMesh;
-                        go.GetComponent<MeshRenderer>().material = smr.sharedMaterial;
-                    }
-                }
-            }
-
-        #endregion
-            */
 
             resultLabel.text = $"🎉 VAT 텍스처 최적화 저장 완료 → {savePath}";
             EditorUtility.DisplayDialog("완료", $"VAT 텍스처 최적화 저장 완료:\n{savePath}", "확인");
@@ -419,7 +426,7 @@ namespace War.VAT.Editor
         {
             int frameOffset = 0;
 
-            foreach (ClipFPSData clipData in clipFPSList)
+            foreach (AnimationClipData clipData in animationClipDataList)
             {
                 int frameCount = Mathf.CeilToInt(clipData.clip.length * clipData.samplingFPS);
 
@@ -445,10 +452,7 @@ namespace War.VAT.Editor
 
             for (int currentFrame = 0; currentFrame <= frameCount; currentFrame++)
             {
-                float time = currentFrame * frameTime;
-
-                // 특정 시간의 메쉬 상태를 굽기 (애니메이터/타임라인 샘플링 필요)
-                clip.SampleAnimation(animator.gameObject, time);
+                clip.SampleAnimation(animator.gameObject, currentFrame * frameTime);
                 smr.BakeMesh(tempMesh);
 
                 Vector3[] vertices = tempMesh.vertices;
@@ -463,14 +467,15 @@ namespace War.VAT.Editor
             }
         }
 
-        private string BakeTexture(string saveDirectory, Mesh tempMesh, SkinnedMeshRenderer smr, int totalFrameCount, Vector3 min, Vector3 max)
+        private void BakeTexture(string saveDirectory, Mesh tempMesh, SkinnedMeshRenderer smr, int totalFrameCount, Vector3 min, Vector3 max, out string vatTexturePath, out string normalTexturePath)
         {
             vatTexWidth = NextPowerOfTwo(smr.sharedMesh.vertexCount);
             vatTexHeight = NextPowerOfTwo(totalFrameCount);
 
             Texture2D vatTexture = new(vatTexWidth, vatTexHeight, TextureFormat.RGBAFloat, false);
+            Texture2D normalTexture = new(vatTexWidth, vatTexHeight, TextureFormat.RGBAFloat, false);
 
-            foreach (ClipFPSData clipData in clipFPSList)
+            foreach (AnimationClipData clipData in animationClipDataList)
             {
                 int frameCount = clipData.endFrame - clipData.startFrame;
                 float frameTime = clipData.clip.length / frameCount;
@@ -496,64 +501,81 @@ namespace War.VAT.Editor
                             .ToArray();
 
                     vatTexture.SetPixels(0, y, colors.Length, 1, colors, 0);
+
+                    Color[] normalColors =
+                        tempMesh.normals
+                            .AsValueEnumerable()
+                            .Select(normal => new Color(normal.x * 0.5f + 0.5f, normal.y * 0.5f + 0.5f, normal.z * 0.5f + 0.5f, 1f))
+                            .ToArray();
+
+                    normalTexture.SetPixels(0, y, normalColors.Length, 1, normalColors, 0);
                 }
             }
 
             vatTexture.Apply();
+            normalTexture.Apply();
 
             string vatTextureAssetName = $"{smr.sharedMesh.name}_vat.exr";
-            string vatTexturePath = Path.Combine(saveDirectory, vatTextureAssetName);
+            vatTexturePath = Path.Combine(saveDirectory, vatTextureAssetName);
 
-            // 최적화된 EXR 저장
-            byte[] bytes = vatTexture.EncodeToEXR(Texture2D.EXRFlags.CompressZIP | Texture2D.EXRFlags.OutputAsFloat);
-            File.WriteAllBytes(vatTexturePath, bytes);
-            AssetDatabase.ImportAsset(vatTexturePath);
+            ImportOptimized(vatTexture, vatTexturePath);
 
-            // Importer 최적화
-            if (AssetImporter.GetAtPath(vatTexturePath) is TextureImporter importer)
+            string normalTextureAssetName = $"{smr.sharedMesh.name}_normal.exr";
+            normalTexturePath = Path.Combine(saveDirectory, normalTextureAssetName);
+
+            ImportOptimized(normalTexture, normalTexturePath);
+
+            return;
+
+            static void ImportOptimized(Texture2D texture, string texturePath)
             {
-                importer.textureType = TextureImporterType.Default;
-                importer.sRGBTexture = false;
-                importer.mipmapEnabled = false;
-                importer.textureCompression = TextureImporterCompression.Uncompressed;
-                importer.filterMode = FilterMode.Point;
-                importer.wrapMode = TextureWrapMode.Clamp;
+                byte[] bytes = texture.EncodeToEXR(Texture2D.EXRFlags.CompressZIP | Texture2D.EXRFlags.OutputAsFloat);
+                File.WriteAllBytes(texturePath, bytes);
+                AssetDatabase.ImportAsset(texturePath);
 
-                TextureImporterPlatformSettings standAlonePlatformSettings = new()
+                if (AssetImporter.GetAtPath(texturePath) is TextureImporter importer)
                 {
-                    overridden = true,
-                    name = UnityEditor.Build.NamedBuildTarget.Standalone.TargetName,
-                    format = TextureImporterFormat.RGBAFloat, // 정밀도 유지
-                    maxTextureSize = 8192,
-                    textureCompression = TextureImporterCompression.Uncompressed
-                };
+                    importer.textureType = TextureImporterType.Default;
+                    importer.sRGBTexture = false;
+                    importer.mipmapEnabled = false;
+                    importer.textureCompression = TextureImporterCompression.Uncompressed;
+                    importer.filterMode = FilterMode.Point;
+                    importer.wrapMode = TextureWrapMode.Clamp;
 
-                importer.SetPlatformTextureSettings(standAlonePlatformSettings);
+                    TextureImporterPlatformSettings standAlonePlatformSettings = new()
+                    {
+                        overridden = true,
+                        name = UnityEditor.Build.NamedBuildTarget.Standalone.TargetName,
+                        format = TextureImporterFormat.RGBAFloat,
+                        maxTextureSize = 8192,
+                        textureCompression = TextureImporterCompression.Uncompressed
+                    };
 
-                TextureImporterPlatformSettings webPlatformSettings = new()
-                {
-                    overridden = true,
-                    name = UnityEditor.Build.NamedBuildTarget.WebGL.TargetName,
-                    format = TextureImporterFormat.RGBAHalf, // 정밀도 유지
-                    maxTextureSize = 8192,
-                    textureCompression = TextureImporterCompression.Uncompressed
-                };
+                    importer.SetPlatformTextureSettings(standAlonePlatformSettings);
 
-                importer.SetPlatformTextureSettings(webPlatformSettings);
+                    TextureImporterPlatformSettings webPlatformSettings = new()
+                    {
+                        overridden = true,
+                        name = UnityEditor.Build.NamedBuildTarget.WebGL.TargetName,
+                        format = TextureImporterFormat.RGBAHalf,
+                        maxTextureSize = 8192,
+                        textureCompression = TextureImporterCompression.Uncompressed
+                    };
 
-                importer.isReadable = true;
-                importer.SaveAndReimport();
+                    importer.SetPlatformTextureSettings(webPlatformSettings);
+
+                    importer.SaveAndReimport();
+                }
             }
-
-            return vatTexturePath;
         }
 
-        private string CreateMaterial(string saveDirectory, string vatTexturePath, SkinnedMeshRenderer smr, Vector3 min, Vector3 max)
+        private string CreateMaterial(string saveDirectory, string vatTexturePath, string normalTexturePath, SkinnedMeshRenderer smr, Vector3 min, Vector3 max)
         {
             Material vatMaterial = new(vatShaderGraph);
 
             vatMaterial.SetTexture(s_baseTex, smr.sharedMaterial.mainTexture);
             vatMaterial.SetTexture(s_vatTex, AssetDatabase.LoadAssetAtPath<Texture2D>(vatTexturePath));
+            vatMaterial.SetTexture(s_normalTex, AssetDatabase.LoadAssetAtPath<Texture2D>(normalTexturePath));
             vatMaterial.SetVector(s_min, min);
             vatMaterial.SetVector(s_max, max);
             vatMaterial.enableInstancing = true;
@@ -571,17 +593,17 @@ namespace War.VAT.Editor
             VatData vatData = CreateInstance<VatData>();
 
             vatData.meshData =
-                smrList
+                skinnedMeshRendererDataList
                     .AsValueEnumerable()
                     .Select(smrData => new VatMeshData
                     {
-                        mesh = smrData.smr.sharedMesh,
-                        material = AssetDatabase.LoadAssetAtPath<Material>(smrData.vatMaterialPath),
+                        mesh = smrData.Renderer.sharedMesh,
+                        material = AssetDatabase.LoadAssetAtPath<Material>(smrData.VatMaterialPath),
                     })
                     .ToList();
 
             vatData.clipData =
-                clipFPSList
+                animationClipDataList
                     .AsValueEnumerable()
                     .Select(clipData => new VatClipData
                     {
