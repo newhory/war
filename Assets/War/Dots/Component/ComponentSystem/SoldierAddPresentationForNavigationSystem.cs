@@ -11,6 +11,7 @@ using ZLinq;
 namespace War.Dots.Component.ComponentSystem
 {
     using Navigation;
+    using VAT;
 
 
     [UpdateInGroup(typeof(Group.AddPresentationSystemGroup), OrderLast = true)]
@@ -41,7 +42,7 @@ namespace War.Dots.Component.ComponentSystem
 
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_blueTeamSoldierViewPool;
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_redTeamSoldierViewPool;
-        
+
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
         private static void Initialize()
@@ -178,6 +179,11 @@ namespace War.Dots.Component.ComponentSystem
                     ecb.AddComponent(entity, new UnityAnimator { Animator = animator });
                 }
 
+                if (gameObject.TryGetComponent(out VertexAnimationBehaviour vertexAnimationBehaviour))
+                {
+                    ecb.AddComponent(entity, new UnityVertexAnimationBehaviour { Behaviour = vertexAnimationBehaviour });
+                }
+
                 ecb.AddComponent(entity, new UnityTransform { Transform = pooledTransform });
             }
 
@@ -197,7 +203,7 @@ namespace War.Dots.Component.ComponentSystem
                 new AddComponentJob
                     {
                         EntityCommandBuffer = ecb.AsParallelWriter(),
-                        
+
                         FlowFieldBlobRootBlob = FlowFieldProvider.FlowFieldFlowBlobAssetReference,
                     }
                     .ScheduleParallel(_soldierForUnitQuery, dependency);

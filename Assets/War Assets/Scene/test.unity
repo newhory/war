@@ -5947,24 +5947,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   spear:
-    blueTeamPrefab: {fileID: 1164582520697428, guid: f5035188ea3eacf4687a0f50f7fd8016,
+    blueTeamPrefab: {fileID: 687137953870473293, guid: d524e364544ec334cad3e97181d63960,
       type: 3}
-    redTeamPrefab: {fileID: 1164582520697428, guid: 88f553eddad1c664f9f34694475143d2,
+    redTeamPrefab: {fileID: 7513229249359287516, guid: 87419fe5a2a49a145aa90199f2c8020b,
       type: 3}
   archer:
-    blueTeamPrefab: {fileID: 1706954055490812, guid: 3f096a11461c9d641804b9acad5ac13a,
+    blueTeamPrefab: {fileID: 8201915008020847693, guid: c89c1704b3523744ca34e54cce5fcab9,
       type: 3}
-    redTeamPrefab: {fileID: 1706954055490812, guid: ded58d3178d3c924b933b70f4539604a,
+    redTeamPrefab: {fileID: 3799104169978656292, guid: 778498f590762a4428d2ae95db494d3f,
       type: 3}
   shield:
-    blueTeamPrefab: {fileID: 1135101527310262, guid: c745ddf6c30e200468c13fb9eb8e27eb,
+    blueTeamPrefab: {fileID: 7890268865872311825, guid: 690ab49087b38464d895af01d925bd64,
       type: 3}
-    redTeamPrefab: {fileID: 1135101527310262, guid: 537504d054aa5114d8815c5c39122006,
+    redTeamPrefab: {fileID: 8824404587082665644, guid: 29954e2236a5a3d4eb084f874c846b73,
       type: 3}
   cavalry:
-    blueTeamPrefab: {fileID: 1313966752450406, guid: 402272d4f1909ac4c85f97821029d1ae,
+    blueTeamPrefab: {fileID: 4060497507911394604, guid: 7d3068458d87e7e4fbb60b32779d17cc,
       type: 3}
-    redTeamPrefab: {fileID: 1313966752450406, guid: a75f9107a4a35c745859aa8cc3b9308c,
+    redTeamPrefab: {fileID: 7198484376980641728, guid: 114f403282c352445be2c3e0f062060f,
       type: 3}
   spawnSoldierCount: 16
   troopHorizonSoldierCount: 4

@@ -42,6 +42,7 @@ namespace War.VAT.Editor
             public int startFrame;
             public int endFrame;
             public int samplingFPS;
+            public bool loop;
         }
 
         private class SkinnedMeshRendererData
@@ -311,7 +312,8 @@ namespace War.VAT.Editor
                 {
                     keyword = clip.name,
                     clip = clip,
-                    samplingFPS = 30
+                    samplingFPS = 30,
+                    loop = clip.isLooping
                 });
             }
 
@@ -610,7 +612,8 @@ namespace War.VAT.Editor
                         keyword = clipData.keyword,
                         startFrame = clipData.startFrame,
                         endFrame = clipData.endFrame,
-                        fps = clipData.samplingFPS
+                        fps = clipData.samplingFPS,
+                        loop = clipData.loop,
                     })
                     .ToList();
 

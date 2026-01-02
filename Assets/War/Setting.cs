@@ -68,6 +68,7 @@ namespace War
             ArrowLayer = LayerMask.NameToLayer("Arrow");
         }
 
+        /*
 #if UNITY_EDITOR
         private int _frameCount;
         private int _selectedFlowFieldTargetIndex;
@@ -190,5 +191,6 @@ namespace War
             Gizmos.color = gizmosColor;
         }
 #endif
+        */
     }
 }

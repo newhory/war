@@ -24,19 +24,24 @@ MonoBehaviour:
     startFrame: 0
     endFrame: 8
     fps: 30
+    loop: 0
   - keyword: hit
     startFrame: 9
     endFrame: 17
     fps: 30
+    loop: 0
   - keyword: die
     startFrame: 18
     endFrame: 38
     fps: 30
+    loop: 0
   - keyword: idle
     startFrame: 39
     endFrame: 68
     fps: 30
+    loop: 1
   - keyword: run
     startFrame: 69
     endFrame: 86
     fps: 30
+    loop: 1

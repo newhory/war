@@ -33,6 +33,10 @@ namespace War.VAT
         /// FPS of animation clip
         /// </summary>
         public float fps;
+        
+        public bool loop;
+        
+        public int FrameCount => endFrame - startFrame + 1;
     }
 
     public class VatData : ScriptableObject
