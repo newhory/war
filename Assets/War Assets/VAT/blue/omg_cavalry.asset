@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ea886e345d64ef2adafee91b40732dc, type: 3}
+  m_Name: omg_cavalry
+  m_EditorClassIdentifier: Assembly-CSharp::War.VAT.VatData
+  meshData:
+  - mesh: {fileID: 4300008, guid: cd0ecf70e23b2524cb250354c45af316, type: 3}
+    material: {fileID: 2100000, guid: 04cf75df0bf7bfe48943f3dd69d79041, type: 2}
+  - mesh: {fileID: 4300012, guid: cd0ecf70e23b2524cb250354c45af316, type: 3}
+    material: {fileID: 2100000, guid: bb6a3a2e92f9bdb4d9660bdefab1cac3, type: 2}
+  - mesh: {fileID: 4300010, guid: cd0ecf70e23b2524cb250354c45af316, type: 3}
+    material: {fileID: 2100000, guid: 1ad7cb496207b9646b650c21ffd72830, type: 2}
+  clipData:
+  - keyword: attack
+    startFrame: 0
+    endFrame: 8
+    fps: 30
+  - keyword: hit
+    startFrame: 9
+    endFrame: 17
+    fps: 30
+  - keyword: die
+    startFrame: 18
+    endFrame: 38
+    fps: 30
+  - keyword: idle
+    startFrame: 39
+    endFrame: 68
+    fps: 30
+  - keyword: run
+    startFrame: 69
+    endFrame: 86
+    fps: 30

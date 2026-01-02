@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4ea886e345d64ef2adafee91b40732dc, type: 3}
+  m_Name: omg_sword
+  m_EditorClassIdentifier: Assembly-CSharp::War.VAT.VatData
+  meshData:
+  - mesh: {fileID: 4300010, guid: fafd9b4edc6e38949985a2d7e1ade199, type: 3}
+    material: {fileID: 2100000, guid: ceac6a1595f83c246b5945e90f359677, type: 2}
+  - mesh: {fileID: 4300008, guid: fafd9b4edc6e38949985a2d7e1ade199, type: 3}
+    material: {fileID: 2100000, guid: 7453094c3ced3df479047405f38ea342, type: 2}
+  - mesh: {fileID: 4300006, guid: fafd9b4edc6e38949985a2d7e1ade199, type: 3}
+    material: {fileID: 2100000, guid: e5de37f715e3a9a429d3b805a917967d, type: 2}
+  clipData:
+  - keyword: attack
+    startFrame: 0
+    endFrame: 7
+    fps: 30
+  - keyword: hit
+    startFrame: 8
+    endFrame: 15
+    fps: 30
+  - keyword: die
+    startFrame: 16
+    endFrame: 35
+    fps: 30
+  - keyword: idle
+    startFrame: 36
+    endFrame: 65
+    fps: 30
+  - keyword: run
+    startFrame: 66
+    endFrame: 83
+    fps: 30

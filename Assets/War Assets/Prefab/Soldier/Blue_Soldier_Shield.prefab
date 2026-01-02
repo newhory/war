@@ -575,7 +575,7 @@ GameObject:
   - component: {fileID: 4631071542473346}
   - component: {fileID: 137586598388786414}
   m_Layer: 0
-  m_Name: ____________001
+  m_Name: sword
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -643,6 +643,7 @@ SkinnedMeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
@@ -763,7 +764,7 @@ GameObject:
   - component: {fileID: 4174556228384074}
   - component: {fileID: 137391239428227800}
   m_Layer: 0
-  m_Name: _________001
+  m_Name: "\uBC29\uD328\uBCD1"
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -831,6 +832,7 @@ SkinnedMeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
@@ -996,7 +998,7 @@ GameObject:
   - component: {fileID: 4991901320533856}
   - component: {fileID: 137884228552611166}
   m_Layer: 0
-  m_Name: ______001
+  m_Name: shield
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1064,6 +1066,7 @@ SkinnedMeshRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   serializedVersion: 2
   m_Quality: 0
   m_UpdateWhenOffscreen: 0
