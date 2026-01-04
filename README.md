@@ -13,11 +13,8 @@
 - 현황
     - 30프레임 이상 안정적인 유닛 수
         - Web 플랫폼 : 유닛수 ~~500~600~~ ~~700~800~~ 1400~1500
-        - Windows 플랫폼 : 유닛수 ~~1000~1200~~ ~~2000~2100~~ 5000~5100
+        - Windows 플랫폼 : 유닛수 ~~1000~1200~~ ~~2000~2100~~ ~~5000~5100~~ 10000~
     - 병목 지점
-        - ~~Animation, NavMeshAgent 사용을 위한~~ GameObject와 동기화 시스템
-        - ~~절대적인 Skinning Animation 개체 수~~
-        - ~~절대적인 NavMeshAgent 개체 수~~
-    - Web 플랫폼 대응을 위한 Hybrid Render 적용 : Entities.Graphics가 지원되는 플랫폼의 경우 사용하지 않음
-    - Navigation.AI : 커스텀 navigation system 추가. NavMesh와 교체해서 테스트 가능하도록 구성
-    - Animation : VAT(Vertex Animation Texture) 적용
+        - ~~Animation, NavMeshAgent 사용을 위한 GameObject와 동기화 시스템~~ -> VAT(Vertex Animation Texture)
+        - ~~절대적인 Skinning Animation 개체 수~~ -> Entities.Graphic 적용 : Web 플랫폼은 Hybrid Render 사용
+        - ~~절대적인 NavMeshAgent 개체 수~~ -> 커스텀 navigation system 추가
