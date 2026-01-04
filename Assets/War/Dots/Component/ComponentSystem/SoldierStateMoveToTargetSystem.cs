@@ -46,7 +46,6 @@ namespace War.Dots.Component.ComponentSystem
 
                     EntityCommandBuffer.SetComponentEnabled<Movable>(index, entity, false);
                     EntityCommandBuffer.SetComponentEnabled<Rotatable>(index, entity, false);
-                    EntityCommandBuffer.SetComponent(index, entity, new Attack { AttackStep = Attack.Step.NotYet });
                 }
                 else
                 {

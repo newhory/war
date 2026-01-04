@@ -21,17 +21,17 @@ namespace War.Dots.Component.ComponentSystem
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookup;
 
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity, ref TroopTargetForAttack targetForAttack)
+            private void Execute([EntityIndexInQuery] int index, Entity entity, ref TroopTargetForAttack targetForAttack, ref TroopFormationReset troopFormationReset)
             {
                 if (targetForAttack.TargetTroop != Entity.Null)
                 {
-                    float3 troopPosition = LocalTransformLookup[entity].Position;
+                    float3 troopTargetPosition = troopFormationReset.TroopPosition;
                     float3 otherTroopPos = LocalTransformLookup[targetForAttack.TargetTroop].Position;
                     
-                    if (!mathf.Approximately(troopPosition, otherTroopPos))
+                    if (!mathf.Approximately(troopTargetPosition, otherTroopPos))
                     {
                         EntityCommandBuffer.SetComponentEnabled<TroopFormationReset>(index, entity, true);
-                        EntityCommandBuffer.SetComponent(index, entity, new TroopFormationReset { TroopPosition = otherTroopPos });
+                        troopFormationReset.TroopPosition = otherTroopPos;
                     }
 
                     EntityCommandBuffer.SetComponentEnabled<TroopAISearchTarget>(index, entity, false);
@@ -166,6 +166,7 @@ namespace War.Dots.Component.ComponentSystem
             _checkTargetValidQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<Troop, Alive, TroopEntity, TroopTargetForAttack, LocalTransform>()
+                    .WithPresentRW<TroopFormationReset>()
                     .WithAny<TroopAICheckTargetValid, TroopAISearchTarget>()
                     .Build();
 

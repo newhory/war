@@ -13,7 +13,7 @@ namespace War.Dots.Component.ComponentSystem
         [BurstCompile]
         private partial struct UpdateAnimationJob : IJobEntity
         {
-            private void Execute(ref CurrentClipProperty currentClipProperty, ref SoldierAnimation soldierAnimation, ref MoveSpeed moveSpeed)
+            private static void Execute(ref CurrentClipProperty currentClipProperty, ref SoldierAnimation soldierAnimation, ref MoveSpeed moveSpeed)
             {
                 SoldierAnimation.State current = soldierAnimation.Current;
                 SoldierAnimation.State next = soldierAnimation.Next;
@@ -43,7 +43,7 @@ namespace War.Dots.Component.ComponentSystem
 
                     case SoldierAnimation.State.Attack:
                         currentClipProperty.ClipKeyword = "attack";
-                        currentClipProperty.NextClipKeyword = "idle";
+                        currentClipProperty.NextClipKeyword = default;
                         currentClipProperty.AccumulatedTime = 0f;
                         break;
 
@@ -73,10 +73,7 @@ namespace War.Dots.Component.ComponentSystem
         }
 
         [BurstCompile]
-        public void OnUpdate(ref SystemState state)
-        {
-            state.Dependency = new UpdateAnimationJob().ScheduleParallel(state.Dependency);
-        }
+        public void OnUpdate(ref SystemState state) => state.Dependency = new UpdateAnimationJob().ScheduleParallel(state.Dependency);
 
         [BurstCompile]
         public void OnDestroy(ref SystemState state)

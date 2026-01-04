@@ -18,6 +18,8 @@ namespace War.VAT.Authoring
             {
                 Entity mainEntity = GetEntity(TransformUsageFlags.Dynamic);
 
+                AddComponent<UseVertexAnimation>(mainEntity);
+
                 DynamicBuffer<Child> children = AddBuffer<Child>(mainEntity);
                 foreach (VatMeshData meshData in authoring.vatData.meshData)
                 {
@@ -50,6 +52,8 @@ namespace War.VAT.Authoring
                     ClipKeyword = authoring.defaultClip,
                     AccumulatedTime = 0f,
                 });
+                
+                AddComponent<WaitForInitialize>(mainEntity);
             }
         }
     }

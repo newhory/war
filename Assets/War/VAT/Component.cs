@@ -5,6 +5,14 @@ using Unity.Rendering;
 
 namespace War.VAT
 {
+    public struct UseVertexAnimation : IComponentData, IEnableableComponent
+    {
+    }
+
+    public struct WaitForInitialize : IComponentData, IEnableableComponent
+    {
+    }
+
     public struct ClipData : IBufferElementData
     {
         public FixedString64Bytes Keyword;

@@ -1,9 +1,10 @@
 ﻿using Unity.Entities;
+using Unity.Transforms;
 
 
 namespace War.Navigation.Systems.Group
 {
-    [UpdateInGroup(typeof(SimulationSystemGroup), OrderLast = true)]
+    [UpdateBefore(typeof(TransformSystemGroup))]
     public partial class NavigationSystemGroup : ComponentSystemGroup
     {
     }

@@ -8,6 +8,7 @@ using Unity.Mathematics;
 
 namespace War.VAT.Systems
 {
+    [UpdateAfter(typeof(TransformSystemGroup))]
     public partial struct VertexAnimationSystem : ISystem
     {
         [BurstCompile]

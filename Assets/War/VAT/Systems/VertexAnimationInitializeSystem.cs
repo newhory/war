@@ -11,6 +11,7 @@ namespace War.VAT.Systems
     public partial struct VertexAnimationInitializeSystem : ISystem
     {
         private EntityQuery vatMeshQuery;
+        private EntityQuery mainEntityQuery;
 
 
         [BurstCompile]
@@ -19,6 +20,11 @@ namespace War.VAT.Systems
             vatMeshQuery =
                 SystemAPI.QueryBuilder()
                     .WithAll<VatMeshData, InitializeVertexAnimation>()
+                    .Build();
+            
+            mainEntityQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<WaitForInitialize>()
                     .Build();
         }
 
@@ -53,6 +59,8 @@ namespace War.VAT.Systems
                 ecb.RemoveComponent<InitializeVertexAnimation>(entity);
                 ecb.RemoveComponent<VatMeshData>(entity);
             }
+
+            state.EntityManager.RemoveComponent<WaitForInitialize>(mainEntityQuery);
         }
 
         [BurstCompile]
