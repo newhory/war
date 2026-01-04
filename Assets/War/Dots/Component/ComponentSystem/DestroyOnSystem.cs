@@ -2,6 +2,7 @@
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
+using Unity.Transforms;
 
 
 namespace War.Dots.Component.ComponentSystem
@@ -29,36 +30,55 @@ namespace War.Dots.Component.ComponentSystem
         }
 
         [BurstCompile]
+        private partial struct CheckLifeChildrenJob : IJobEntity
+        {
+            public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
+
+            [ReadOnly] public double CurrentTime;
+
+
+            private void Execute([EntityIndexInQuery] int index, Entity entity, DynamicBuffer<Child> children,
+                in DestroyOn destroyOn)
+            {
+                if (CurrentTime >= destroyOn.DestroyTime)
+                {
+                    for (int i = 0, count = children.Length; i < count; ++i)
+                    {
+                        EntityCommandBuffer.DestroyEntity(index, children[i].Value);
+                    }
+
+                    EntityCommandBuffer.DestroyEntity(index, entity);
+                }
+            }
+        }
+
+        [BurstCompile]
         private partial struct CleanUpDamagedJob : IJobEntity
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
-            
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity) => EntityCommandBuffer.RemoveComponent<Damaged>(index, entity);
+
+            private void Execute([EntityIndexInQuery] int index, Entity entity) =>
+                EntityCommandBuffer.RemoveComponent<Damaged>(index, entity);
         }
 
         [BurstCompile]
         private partial struct CleanUpSpawnHitEffectJob : IJobEntity
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
-            
 
-            private void Execute([EntityIndexInQuery] int index, Entity entity) => EntityCommandBuffer.RemoveComponent<SpawnHitEffect>(index, entity);
+
+            private void Execute([EntityIndexInQuery] int index, Entity entity) =>
+                EntityCommandBuffer.RemoveComponent<SpawnHitEffect>(index, entity);
         }
 
 
-        private EntityQuery _destroyOnQuery;
         private EntityQuery _cleanUpDamagedQuery;
         private EntityQuery _cleanUpSpawnHitEffectQuery;
 
 
         public void OnCreate(ref SystemState state)
         {
-            _destroyOnQuery =
-                SystemAPI.QueryBuilder()
-                    .WithAll<DestroyOn>()
-                    .Build();
-
             _cleanUpDamagedQuery =
                 SystemAPI.QueryBuilder()
                     .WithNone<Alive>()
@@ -80,7 +100,8 @@ namespace War.Dots.Component.ComponentSystem
         {
             JobHandle dependency = state.Dependency;
 
-            EndSimulationEntityCommandBufferSystem ecbSystem = state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+            EndSimulationEntityCommandBufferSystem ecbSystem =
+                state.World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
 
             EntityCommandBuffer excludeSoldierEcb = ecbSystem.CreateCommandBuffer();
             dependency =
@@ -90,15 +111,30 @@ namespace War.Dots.Component.ComponentSystem
 
                         CurrentTime = SystemAPI.Time.ElapsedTime
                     }
-                    .ScheduleParallel(_destroyOnQuery, dependency);
+                    .ScheduleParallel(dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
             excludeSoldierEcb = ecbSystem.CreateCommandBuffer();
-            dependency = new CleanUpDamagedJob { EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter() }.ScheduleParallel(_cleanUpDamagedQuery, dependency);
+            dependency =
+                new CheckLifeChildrenJob
+                    {
+                        EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter(),
+
+                        CurrentTime = SystemAPI.Time.ElapsedTime
+                    }
+                    .ScheduleParallel(dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
             excludeSoldierEcb = ecbSystem.CreateCommandBuffer();
-            dependency = new CleanUpSpawnHitEffectJob { EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter() }.ScheduleParallel(_cleanUpSpawnHitEffectQuery, dependency);
+            dependency =
+                new CleanUpDamagedJob { EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter() }.ScheduleParallel(
+                    _cleanUpDamagedQuery, dependency);
+            ecbSystem.AddJobHandleForProducer(dependency);
+
+            excludeSoldierEcb = ecbSystem.CreateCommandBuffer();
+            dependency =
+                new CleanUpSpawnHitEffectJob { EntityCommandBuffer = excludeSoldierEcb.AsParallelWriter() }
+                    .ScheduleParallel(_cleanUpSpawnHitEffectQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
             state.Dependency = dependency;

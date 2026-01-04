@@ -405,7 +405,7 @@ PlayerSettings:
     m_StaticBatching: 1
     m_DynamicBatching: 1
   - m_BuildTarget: Standalone
-    m_StaticBatching: 0
+    m_StaticBatching: 1
     m_DynamicBatching: 1
   m_BuildTargetShaderSettings: []
   m_BuildTargetGraphicsJobs:
@@ -769,7 +769,7 @@ PlayerSettings:
   webEnableSubmoduleStrippingCompatibility: 0
   scriptingDefineSymbols:
     Standalone: UNITY_PIPELINE_URP
-    WebGL: HYBRID_ARROW;UNITY_PIPELINE_URP
+    WebGL: UNITY_PIPELINE_URP;DO_NOT_USE_ENTITIES_GRAPHICS
   additionalCompilerArguments: {}
   platformArchitecture:
     iPhone: 1

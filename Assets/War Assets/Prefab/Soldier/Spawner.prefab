@@ -50,6 +50,10 @@ MonoBehaviour:
     type: 3}
   troopPrefab: {fileID: 1139049301690484, guid: 908766804eb5687458b894306e345a0e,
     type: 3}
+  blueTeamSpearPrefab: {fileID: 9140222370992910021, guid: dfefb7073616d7e4c9cf3e57e1d8e65e,
+    type: 3}
+  redTeamSpearPrefab: {fileID: 3493419182488549988, guid: bea2730dae93a2e4d80e7fcb3dc808a3,
+    type: 3}
   spear:
     health: 12
     moveSpeed: 1
@@ -64,6 +68,10 @@ MonoBehaviour:
     weapon: 0
     radius: 0.5
     radiusInFormation: 0.75
+  blueTeamArcherPrefab: {fileID: 289516049326448439, guid: 73279d12799f6de4392c90b7d7f0a483,
+    type: 3}
+  redTeamArcherPrefab: {fileID: 4728434349076383465, guid: 9e17baf2f172b704995c7334117438c1,
+    type: 3}
   archer:
     health: 8
     moveSpeed: 0.8
@@ -78,6 +86,10 @@ MonoBehaviour:
     weapon: 1
     radius: 0.5
     radiusInFormation: 0.75
+  blueTeamShieldPrefab: {fileID: 6680758399170447216, guid: 939b8314348b6044cbdae3bd20dff269,
+    type: 3}
+  redTeamShieldPrefab: {fileID: 1417858047439707124, guid: f036e6a82540d3241acf342062ef8968,
+    type: 3}
   shield:
     health: 20
     moveSpeed: 0.5
@@ -92,6 +104,10 @@ MonoBehaviour:
     weapon: 0
     radius: 0.5
     radiusInFormation: 0.75
+  blueTeamCavalryPrefab: {fileID: 9132235852610569075, guid: cb3fd164cfef0db4fba7871ec70cf72b,
+    type: 3}
+  redTeamCavalryPrefab: {fileID: 5993398848063612471, guid: 2c0ab493e6bec1740927584940130b99,
+    type: 3}
   cavalry:
     health: 15
     moveSpeed: 2

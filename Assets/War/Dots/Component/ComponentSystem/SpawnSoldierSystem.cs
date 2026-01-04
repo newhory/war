@@ -49,7 +49,9 @@ namespace War.Dots.Component.ComponentSystem
         {
             public EntityCommandBuffer.ParallelWriter EntityCommandBuffer;
 
+#if DO_NOT_USE_ENTITIES_GRAPHICS
             [ReadOnly] public Entity SoldierProtoType;
+#endif
             [ReadOnly] public NativeArray<SoldierForSpawn>.ReadOnly SoldierForSpawns;
 
 
@@ -58,7 +60,13 @@ namespace War.Dots.Component.ComponentSystem
                 SoldierForSpawn soldierForSpawn = SoldierForSpawns[index];
                 SoldierData soldierData = soldierForSpawn.SoldierData;
 
-                Entity soldierEntity = EntityCommandBuffer.Instantiate(index, SoldierProtoType);
+                Entity soldierEntity = EntityCommandBuffer.Instantiate(index,
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+                    SoldierProtoType
+#else
+                    soldierForSpawn.TeamColor == TeamColor.Blue ? soldierForSpawn.SoldierData.BlueTeamProtoType : soldierForSpawn.SoldierData.RedTeamProtoType
+#endif
+                );
 
             #region troop
 
@@ -90,7 +98,7 @@ namespace War.Dots.Component.ComponentSystem
             #endregion
 
             #region formation
-                
+
                 EntityCommandBuffer.AddComponent(index, soldierEntity, new SoldierUpdatePositionInFormation());
                 EntityCommandBuffer.SetComponentEnabled<SoldierUpdatePositionInFormation>(index, soldierEntity, false);
 
@@ -196,7 +204,7 @@ namespace War.Dots.Component.ComponentSystem
             #endregion
 
             #region formation
-                
+
                 EntityCommandBuffer.AddComponent(index, troopEntity, new TroopFormationReset { TroopPosition = new float3(troopForSpawn.TroopPosition.x, 0f, troopForSpawn.TroopPosition.y) });
 
             #endregion
@@ -380,8 +388,9 @@ namespace War.Dots.Component.ComponentSystem
                     new SpawnSoldierJob
                         {
                             EntityCommandBuffer = ecb.AsParallelWriter(),
-
+#if DO_NOT_USE_ENTITIES_GRAPHICS
                             SoldierProtoType = soldierSpawner.SoldierProtoType,
+#endif
                             SoldierForSpawns = spawnSoldierList.AsReadOnly(),
                         }
                         .Schedule(spawnSoldierList.Length, 64, dependency);

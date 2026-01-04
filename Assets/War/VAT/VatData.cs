@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using Unity.Entities;
 using UnityEngine;
 
 namespace War.VAT
 {
     [Serializable]
-    public class VatMeshData
+    public class VatMeshData : IComponentData
     {
         public Mesh mesh;
         public Material material;

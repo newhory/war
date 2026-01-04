@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &687137953870473293
+--- !u!1 &8201915008020847693
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,24 +8,24 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 9181620723830682929}
-  - component: {fileID: 3035804074383451057}
-  - component: {fileID: 530752839434310210}
-  - component: {fileID: 1891263548327326832}
+  - component: {fileID: 741948163844953552}
+  - component: {fileID: 7093196245265454352}
+  - component: {fileID: 891492086721541850}
+  - component: {fileID: 4596607582560451266}
   m_Layer: 0
-  m_Name: Blue_Soldier_Spear_vat
+  m_Name: Mono_Blue_Soldier_Archer
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &9181620723830682929
+--- !u!4 &741948163844953552
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 687137953870473293}
+  m_GameObject: {fileID: 8201915008020847693}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -34,27 +34,27 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &3035804074383451057
+--- !u!114 &7093196245265454352
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 687137953870473293}
+  m_GameObject: {fileID: 8201915008020847693}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0d21578c4557434e863e6d8c8c86ab6c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::War.VAT.VertexAnimationBehaviour
-  vatData: {fileID: 11400000, guid: 70148064acd6a724fb7d17b0f8e52e80, type: 2}
+  vatData: {fileID: 11400000, guid: 93cc376c1ef492f479613e4eb208adb3, type: 2}
   defaultClip: idle
---- !u!195 &530752839434310210
+--- !u!195 &891492086721541850
 NavMeshAgent:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 687137953870473293}
+  m_GameObject: {fileID: 8201915008020847693}
   m_Enabled: 0
   m_AgentTypeID: 0
   m_Radius: 0.5
@@ -70,13 +70,13 @@ NavMeshAgent:
   m_BaseOffset: 0
   m_WalkableMask: 1
   m_ObstacleAvoidanceType: 4
---- !u!208 &1891263548327326832
+--- !u!208 &4596607582560451266
 NavMeshObstacle:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 687137953870473293}
+  m_GameObject: {fileID: 8201915008020847693}
   m_Enabled: 0
   serializedVersion: 3
   m_Shape: 0

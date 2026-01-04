@@ -1,4 +1,4 @@
-﻿#if HYBRID_ARROW
+﻿#if DO_NOT_USE_ENTITIES_GRAPHICS
 using System.Collections.Generic;
 using Unity.Entities;
 using UnityEngine;

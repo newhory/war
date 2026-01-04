@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
-using Unity.Collections;
+﻿using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Transforms;
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Pool;
 using ZLinq;
-
+#endif
 
 namespace War.Dots.Component.ComponentSystem
 {
@@ -16,7 +17,18 @@ namespace War.Dots.Component.ComponentSystem
 
     [UpdateInGroup(typeof(Group.AddPresentationSystemGroup), OrderLast = true)]
     [RequireMatchingQueriesForUpdate]
-    public partial class SoldierAddPresentationForNavigationSystem : SystemBase
+    public partial
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+        class
+#else
+        struct
+#endif
+        SoldierAddPresentationForNavigationSystem :
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+        SystemBase
+#else
+        ISystem
+#endif
     {
         private partial struct AddComponentJob : IJobEntity
         {
@@ -39,7 +51,7 @@ namespace War.Dots.Component.ComponentSystem
                 EntityCommandBuffer.AddComponent(index, entity, new FlowFieldBlobReference { BlobAssetReference = FlowFieldBlobRootBlob });
             }
         }
-
+#if DO_NOT_USE_ENTITIES_GRAPHICS
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_blueTeamSoldierViewPool;
         private static Dictionary<SoldierType, ObjectPool<GameObject>> s_redTeamSoldierViewPool;
 
@@ -112,12 +124,20 @@ namespace War.Dots.Component.ComponentSystem
                 actionOnDestroy: Object.Destroy,
                 collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                 defaultCapacity: 10);
-
+#endif
 
         private EntityQuery _soldierForUnitQuery;
 
-
-        protected override void OnCreate()
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+        protected override
+#else
+        public
+#endif
+            void OnCreate(
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+                ref SystemState state
+#endif
+            )
         {
             _soldierForUnitQuery =
                 SystemAPI.QueryBuilder()
@@ -129,11 +149,25 @@ namespace War.Dots.Component.ComponentSystem
                     .Build();
         }
 
-        protected override void OnUpdate()
+#if DO_NOT_USE_ENTITIES_GRAPHICS
+        protected override
+#else
+        public
+#endif
+            void OnUpdate(
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+                ref SystemState state
+#endif
+            )
         {
-            EndInitializationEntityCommandBufferSystem ecbSystem = World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
-            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+            EndInitializationEntityCommandBufferSystem ecbSystem =
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+                state.
+#endif
+                    World.GetOrCreateSystemManaged<EndInitializationEntityCommandBufferSystem>();
 
+            EntityCommandBuffer ecb = ecbSystem.CreateCommandBuffer();
+#if DO_NOT_USE_ENTITIES_GRAPHICS
             foreach (
                 var (soldier, team, localTransform, forward, agentData, acceleration, entity)
                 in
@@ -193,12 +227,15 @@ namespace War.Dots.Component.ComponentSystem
             }
 
             _pooledGameObjectBuffer.Clear();
-
-            JobHandle dependency = Dependency;
+#endif
+            JobHandle dependency =
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+                state.
+#endif
+                    Dependency;
 
             _soldierForUnitQuery.SetSharedComponentFilter(new NavigationAPI { Type = NavigationType.Custom });
 
-            ecb = ecbSystem.CreateCommandBuffer();
             dependency =
                 new AddComponentJob
                     {
@@ -209,10 +246,20 @@ namespace War.Dots.Component.ComponentSystem
                     .ScheduleParallel(_soldierForUnitQuery, dependency);
             ecbSystem.AddJobHandleForProducer(dependency);
 
-            Dependency = dependency;
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+            state.
+#endif
+                Dependency = dependency;
         }
+#if !DO_NOT_USE_ENTITIES_GRAPHICS
+        public void OnDestroy(ref SystemState state)
+        {
+        }
+#endif
 
+#if DO_NOT_USE_ENTITIES_GRAPHICS
         protected override void OnStartRunning() => InitPool();
         protected override void OnDestroy() => DisposePool();
+#endif
     }
 }

@@ -3,7 +3,7 @@ using Unity.Entities;
 using UnityEngine;
 
 
-namespace War.VAT
+namespace War.VAT.Systems
 {
     public partial class VertexAnimationBehaviourSystem : SystemBase
     {

@@ -20,7 +20,7 @@ namespace War.Dots.Component.Authoring
                 AddComponent(entity, new ArrowSpawner
                 {
                     ArrowProtoType = GetEntity(
-#if HYBRID_ARROW
+#if DO_NOT_USE_ENTITIES_GRAPHICS
                         authoring.arrowPrefabForHybrid
 #else
                         authoring.arrowPrefab

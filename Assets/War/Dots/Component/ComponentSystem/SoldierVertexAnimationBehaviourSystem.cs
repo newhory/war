@@ -1,4 +1,5 @@
-﻿using Unity.Entities;
+﻿#if DO_NOT_USE_ENTITIES_GRAPHICS
+using Unity.Entities;
 using UnityEngine;
 
 
@@ -86,3 +87,4 @@ namespace War.Dots.Component.ComponentSystem
         }
     }
 }
+#endif

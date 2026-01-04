@@ -8,6 +8,9 @@ namespace War.Dots.Component
     [System.Serializable]
     public struct SoldierData
     {
+        public Entity BlueTeamProtoType;
+        public Entity RedTeamProtoType;
+        
         [Header("Status")]
         public float health;
         
@@ -36,6 +39,8 @@ namespace War.Dots.Component
     
     public struct SpawnSoldierData : IBufferElementData
     {
+        public Entity ProtoType;
+        
         public TeamColor TeamColor;
         public SoldierType SoldierType;
 

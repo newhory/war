@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using ZLinq;
 using Cysharp.Threading.Tasks;
+using War.VAT.Systems;
 
 
 namespace War.VAT
@@ -19,8 +20,6 @@ namespace War.VAT
 
         private List<MeshRenderer> _meshRenderers;
         private Dictionary<string, VatClipData> _vatClips;
-
-        private CancellationTokenSource _ctsAfterStart;
 
         private VatClipData _vatClipData;
         private string _currentClip;
@@ -78,9 +77,6 @@ namespace War.VAT
 
         private void OnDisable()
         {
-            _ctsAfterStart?.Cancel();
-            _ctsAfterStart?.Dispose();
-
             VertexAnimationBehaviourSystem.UnregisterBehaviour(this);
 
             _currentClip = string.Empty;

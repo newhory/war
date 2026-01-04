@@ -63,6 +63,7 @@ namespace War.Dots.Component.ComponentSystem
         private EntityQuery _troopGroup;
         private EntityQuery _soldierGroup;
         private EntityQuery _pooledGameObjectQuery;
+        private EntityQuery _childObjectQuery;
 
 
         protected override void OnCreate()
@@ -88,6 +89,11 @@ namespace War.Dots.Component.ComponentSystem
                 SystemAPI.QueryBuilder()
                     .WithAll<PooledGameObject>()
                     .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
+                    .Build();
+
+            _childObjectQuery =
+                SystemAPI.QueryBuilder()
+                    .WithAll<Parent>()
                     .Build();
         }
 
@@ -157,11 +163,12 @@ namespace War.Dots.Component.ComponentSystem
                 
                 BattleInputSystem.Reset();
 
+                EntityManager.DestroyEntity(_childObjectQuery);
                 EntityManager.DestroyEntity(_allArmyQuery);
 
                 SoldierAddPresentationSystem.ResetPool();
+#if DO_NOT_USE_ENTITIES_GRAPHICS
                 SoldierAddPresentationForNavigationSystem.ResetPool();
-#if HYBRID_ARROW
                 ArrowAddPresentationSystem.ResetPool();
 #endif
                 UnityEngine.Resources.UnloadUnusedAssets();
