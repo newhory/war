@@ -37,7 +37,7 @@ namespace War.VAT
     [MaterialProperty("_FrameIndex")]
     public struct FrameIndexProperty : IComponentData
     {
-        public int Value;
+        public float Value;
     }
 
     public struct InitializeVertexAnimation : IComponentData
