@@ -71,3 +71,14 @@ Client/Assets/War[[:space:]]Assets/Scene/test/NavMesh-Ground[[:space:]]1.asset f
 Assets/War[[:space:]]Assets/Scene/test/LightingData.asset filter=lfs diff=lfs merge=lfs -text
 Assets/War[[:space:]]Assets/Scene/test/NavMesh-Ground[[:space:]]1.asset filter=lfs diff=lfs merge=lfs -text
 Assets/War[[:space:]]Assets/Scene/test/NavMesh-Ground.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/AdditiveLevels/Scenes/MirrorAdditiveLevelsOnline/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/AdditiveScenes/Scenes/MirrorAdditiveScenesMain/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/EdgegapLobby/EdgegapLobbyTanks/NavMesh.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/MultipleAdditiveScenes/Scenes/MirrorMultipleAdditiveScenesMain/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/PlayerTest/PlayerTestScene/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/PlayerTest/PlayerTestScene/TerrainData2019.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/Room/Scenes/MirrorRoomGame/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/TankTheftAuto/MirrorTankTheftAuto/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/Tanks/Scenes/MirrorTanks/NavMesh.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/TopDownShooter/Scenes/MirrorTopDownShooter/LightingData.asset filter=lfs diff=lfs merge=lfs -text
+Assets/Mirror/Examples/TopDownShooter/Scenes/MirrorTopDownShooter/NavMesh.asset filter=lfs diff=lfs merge=lfs -text
