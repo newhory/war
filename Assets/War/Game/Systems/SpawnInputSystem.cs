@@ -24,6 +24,7 @@ namespace War.Game.Systems
         {
             state.RequireForUpdate<PhysicsWorldSingleton>();
             state.RequireForUpdate<PointInput>();
+            state.RequireForUpdate<SpawnInput>();
         }
 
         public void OnDestroy(ref SystemState state)
