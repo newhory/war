@@ -7,13 +7,13 @@ using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Pool;
 using UnityEngine.Splines;
+using War.Game;
 using ZLinq;
 
 
 namespace War
 {
-    using Dots.Component;
-    using Dots.Component.ComponentSystem;
+    using Game.Systems;
 
 
     public class TroopSelectedRenderer : MonoBehaviour
@@ -119,14 +119,14 @@ namespace War
                 {
                     return;
                 }
-                
+
                 _dragLineTransform.position = dragStartPosition;
 
                 Vector3 dragLineScale = _dragLineTransform.localScale;
                 float dragHeadHeight = Mathf.Sqrt(3f) * 0.5f * _dragHeadSideLength;
                 dragLineScale.z = Vector3.Distance(dragStartPosition, draggingPosition) - dragHeadHeight * 0.9f;
                 _dragLineTransform.localScale = dragLineScale;
-                
+
                 _dragLineTransform.forward = dragDirection;
 
                 _dragLineMaterial.color = color;
@@ -150,8 +150,10 @@ namespace War
 
             public void Dispose()
             {
+#if !UNITY_EDITOR
                 Destroy(_dragLine);
                 Destroy(_dragHead);
+#endif
             }
         }
 
@@ -243,7 +245,13 @@ namespace War
                     },
                     actionOnGet: lineRenderer => lineRenderer.gameObject.SetActive(true),
                     actionOnRelease: lineRenderer => lineRenderer.gameObject.SetActive(false),
-                    actionOnDestroy: lineRenderer => Destroy(lineRenderer.gameObject),
+                    actionOnDestroy: lineRenderer =>
+                    {
+                        if (lineRenderer && lineRenderer.gameObject)
+                        {
+                            Destroy(lineRenderer.gameObject);
+                        }
+                    },
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 1);
 
@@ -252,7 +260,13 @@ namespace War
                     createFunc: () => new GameObject().AddComponent<SplineContainer>(),
                     actionOnGet: splineContainer => splineContainer.gameObject.SetActive(true),
                     actionOnRelease: splineContainer => splineContainer.gameObject.SetActive(false),
-                    actionOnDestroy: splineContainer => Destroy(splineContainer.gameObject),
+                    actionOnDestroy: splineContainer =>
+                    {
+                        if (splineContainer && splineContainer.gameObject)
+                        {
+                            Destroy(splineContainer.gameObject);
+                        }
+                    },
                     collectionCheck: true, // An Editor-only check that determines if an instance is returned back to the pool. Throws an exception if the instance is already in the pool.
                     defaultCapacity: 1);
 
@@ -299,7 +313,7 @@ namespace War
 
         private void Update()
         {
-            Entity selectedByInputTroopEntity = BattleInputSystem.CurrentSelectedEntity;
+            Entity selectedByInputTroopEntity = Game.Systems.BattleInputSystem.CurrentSelectedEntity;
 
             // 쿼리: Selected Troop with hull buffer
             EntityQuery selectedTroopQuery =
@@ -399,20 +413,20 @@ namespace War
 
             if (selectedByInputTroopEntity != Entity.Null &&
                 _activeSelectedTroops.TryGetValue(selectedByInputTroopEntity, out ActiveTroopVisual currentActiveTroopVisual) &&
-                _entityManager.IsComponentEnabled<DragStartWorldPosition>(BattleInputSystem.PointInput) &&
-                _entityManager.IsComponentEnabled<DraggingWorldPosition>(BattleInputSystem.PointInput))
+                _entityManager.IsComponentEnabled<DragStartWorldPosition>(Game.Systems.BattleInputSystem.PointInput) &&
+                _entityManager.IsComponentEnabled<DraggingWorldPosition>(Game.Systems.BattleInputSystem.PointInput))
             {
                 Vector3 draggingPosition;
 
-                if (BattleInputSystem.CurrentTargetCandidateEntity != Entity.Null &&
-                    _activeSelectedTroops.TryGetValue(BattleInputSystem.CurrentTargetCandidateEntity, out ActiveTroopVisual currentTargetCandidateActiveTroopVisual))
+                if (Game.Systems.BattleInputSystem.CurrentTargetCandidateEntity != Entity.Null &&
+                    _activeSelectedTroops.TryGetValue(Game.Systems.BattleInputSystem.CurrentTargetCandidateEntity, out ActiveTroopVisual currentTargetCandidateActiveTroopVisual))
                 {
                     draggingPosition = currentTargetCandidateActiveTroopVisual.TroopPosition;
                 }
                 else
                 {
                     currentTargetCandidateActiveTroopVisual = null;
-                    draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(BattleInputSystem.PointInput).Position;
+                    draggingPosition = _entityManager.GetComponentData<DraggingWorldPosition>(Game.Systems.BattleInputSystem.PointInput).Position;
                 }
 
                 draggingPosition.y = height;

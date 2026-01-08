@@ -6,10 +6,10 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/War Assets/Scene/test.unity
-    guid: 459a79af768117242b25c0cc75abac10
+    path: Assets/War Assets/Scene/Game.unity
+    guid: f391ba2622a682845b154aa6787a8a4b
   - enabled: 1
-    path: Assets/War Assets/Scene/Sub Scene.unity
+    path: Assets/War Assets/Scene/Game Sub Scene.unity
     guid: b28ad05c9feb87a42b34e08621be2c87
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: e62405c0b90227046b6a70a3302024f9,

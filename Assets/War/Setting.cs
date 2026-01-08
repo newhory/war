@@ -2,6 +2,7 @@
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using War.Game;
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine.InputSystem;
@@ -9,7 +10,6 @@ using UnityEngine.InputSystem;
 
 namespace War
 {
-    using Dots.Component;
 #if UNITY_EDITOR
     using Navigation;
 #endif
