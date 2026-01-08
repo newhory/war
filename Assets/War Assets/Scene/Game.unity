@@ -1740,8 +1740,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3fe043f2f5a8f5a47805d95245bb5659, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  blueRespawn: {fileID: 0}
-  redRespawn: {fileID: 0}
   startBattleButton: {fileID: 1618960693}
   resetButton: {fileID: 1086557082}
   blueTeamButtonRoot: {fileID: 181229090}
