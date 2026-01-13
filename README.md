@@ -19,3 +19,7 @@
         - ~~Animation, NavMeshAgent 사용을 위한 GameObject와 동기화 시스템~~ -> VAT(Vertex Animation Texture)
         - ~~절대적인 Skinning Animation 개체 수~~ -> Entities.Graphic 적용 : Web 플랫폼은 Hybrid Render 사용
         - ~~절대적인 NavMeshAgent 개체 수~~ -> 커스텀 navigation system 추가
+
+- 웹 빌드
+    - https://game.crowlib.com/omg/
+    - 오전 9시 ~ 오후 10시 까지 접속 가능합니다.
